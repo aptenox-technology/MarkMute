@@ -1,6 +1,7 @@
 services:
   app:
     build: .
+    image: aptenox/markmute:latest
     ports:
       - "8000:8000"
     environment:
@@ -16,6 +17,7 @@ services:
 
   worker:
     build: .
+    image: aptenox/markmute:latest
     command: celery -A app.core.celery worker --loglevel=info -Q pixel_removal,default
     environment:
       - REDIS_URL=redis://redis:6379/0
