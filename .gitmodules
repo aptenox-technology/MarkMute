@@ -1,0 +1,3 @@
+[submodule "upstream/watermarks-remover"]
+	path = upstream/watermarks-remover
+	url = https://github.com/guillaumemeyer/watermarks-remover.git

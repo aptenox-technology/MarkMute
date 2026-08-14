@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MarkMute — Watermark &amp; Metadata Remover</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' },
+          },
+          fontFamily: { mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'] },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <div id="toast-root" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center font-bold text-white text-lg">M</div>
+        <div>
+          <h1 class="text-lg font-bold leading-tight">MarkMute</h1>
+          <p class="text-xs text-slate-400">best-effort watermark &amp; metadata remover</p>
+        </div>
+      </div>
+      <div id="health-badge" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">checking…</div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="max-w-6xl mx-auto px-4 pt-6">
+    <div class="flex gap-2 border-b border-slate-800">
+      <button data-tab="text" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg text-slate-400 hover:text-slate-200">Text</button>
+      <button data-tab="files" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg text-slate-400 hover:text-slate-200">Files</button>
+      <button data-tab="images" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg text-slate-400 hover:text-slate-200">Images</button>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <!-- ============ TEXT TAB ============ -->
+    <section id="tab-text" class="tab-panel">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="panel">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold">Paste text</h2>
+            <div class="flex gap-2">
+              <button id="text-clear" class="btn-ghost text-xs">Clear</button>
+              <button id="text-paste" class="btn-ghost text-xs">Paste</button>
+            </div>
+          </div>
+          <textarea id="text-input" rows="14" class="input w-full" placeholder="Paste text here. MarkMute scans for invisible Unicode, bidi control characters, tag characters and space homoglyphs (Layer A)."></textarea>
+
+          <div class="mt-3 space-y-2 text-sm">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" id="opt-aggressive" class="checkbox" />
+              <span>Aggressive mode (also flag Latin confusables / fullwidth lookalikes)</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" id="opt-strip-emoji" class="checkbox" />
+              <span>Paranoid — strip load-bearing invisibles too (emoji glue, joiners, flag tags)</span>
+            </label>
+          </div>
+
+          <div class="flex flex-wrap gap-2 mt-4">
+            <button id="text-inspect" class="btn-primary">Inspect</button>
+            <button id="text-clean" class="btn-secondary">Clean</button>
+            <button id="text-rewrite" class="btn-secondary">Rewrite (LLM)</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold">Result</h2>
+            <div id="text-verdict" class="hidden text-xs font-semibold px-3 py-1 rounded-full"></div>
+          </div>
+          <div id="text-report" class="report"></div>
+          <textarea id="text-output" rows="10" class="input w-full mt-3 hidden" placeholder="Cleaned / rewritten output appears here."></textarea>
+          <div class="flex gap-2 mt-3">
+            <button id="text-copy" class="btn-ghost text-xs hidden">Copy output</button>
+            <button id="text-rewrite-settings" class="btn-ghost text-xs hidden">Rewrite options</button>
+          </div>
+          <div id="text-rewrite-options" class="hidden mt-3 p-3 rounded-lg bg-slate-800/60 border border-slate-700 text-sm space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-xs text-slate-400">Backend</span>
+                <select id="rw-backend" class="input w-full mt-1">
+                  <option value="print-prompt">print-prompt (no LLM)</option>
+                  <option value="ollama">ollama (local)</option>
+                  <option value="openai-compatible">openai-compatible</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-400">Strength</span>
+                <select id="rw-strength" class="input w-full mt-1">
+                  <option value="paraphrase">paraphrase</option>
+                  <option value="backtranslate">backtranslate</option>
+                  <option value="structural">structural</option>
+                  <option value="humanize">humanize</option>
+                  <option value="code">code</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-400">Pivot language (backtranslate)</span>
+                <input id="rw-lang" type="text" value="French" class="input w-full mt-1" />
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-400">Temperature</span>
+                <input id="rw-temperature" type="number" step="0.1" min="0" max="2" class="input w-full mt-1" placeholder="default" />
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-400">Candidates</span>
+                <input id="rw-candidates" type="number" min="1" max="10" class="input w-full mt-1" placeholder="default" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FILES TAB ============ -->
+    <section id="tab-files" class="tab-panel hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="panel">
+          <h2 class="font-semibold mb-3">Upload a file</h2>
+          <div id="files-drop" class="dropzone">
+            <div class="text-4xl mb-2">⬆️</div>
+            <p class="font-medium">Drag &amp; drop or click to upload</p>
+            <p class="text-xs text-slate-400 mt-1">PNG · JPEG · WebP · SVG · PDF · DOCX · ODT · HTML · MD · TXT (max 256 MiB)</p>
+          </div>
+          <input type="file" id="files-input" class="hidden" />
+          <div id="files-queue" class="mt-4 space-y-3"></div>
+        </div>
+        <div class="panel">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold">Report</h2>
+            <span id="files-name" class="text-xs text-slate-400"></span>
+          </div>
+          <div id="files-report" class="report"></div>
+          <div id="files-actions" class="hidden flex flex-wrap gap-2 mt-4"></div>
+          <div id="files-download" class="hidden mt-4"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ IMAGES TAB ============ -->
+    <section id="tab-images" class="tab-panel hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="panel">
+          <h2 class="font-semibold mb-3">Upload an image</h2>
+          <div id="images-drop" class="dropzone">
+            <div class="text-4xl mb-2">🖼️</div>
+            <p class="font-medium">Drag &amp; drop or click to upload</p>
+            <p class="text-xs text-slate-400 mt-1">PNG · JPEG · WebP</p>
+          </div>
+          <input type="file" id="images-input" class="hidden" accept="image/png,image/jpeg,image/webp" />
+          <div id="images-preview" class="mt-4 hidden">
+            <img id="images-thumb" class="rounded-lg border border-slate-700 max-h-48" alt="preview" />
+          </div>
+          <div id="images-queue" class="mt-4 space-y-3"></div>
+        </div>
+        <div class="panel">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold">Report</h2>
+            <span id="images-name" class="text-xs text-slate-400"></span>
+          </div>
+          <div id="images-report" class="report"></div>
+          <div id="images-actions" class="hidden flex flex-wrap gap-2 mt-4"></div>
+          <div id="images-download" class="hidden mt-4"></div>
+          <div id="images-task" class="hidden mt-4 p-3 rounded-lg bg-slate-800/60 border border-slate-700 text-sm"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-4 pb-10 pt-4 border-t border-slate-800 mt-10">
+    <p class="text-xs text-slate-500 leading-relaxed">
+      This tool is for privacy and hygiene on your own content. Users must adhere to local regulations and use responsibly.
+      MarkMute performs <strong>best-effort</strong>, verifiable removal — it never claims 100% watermark-free output.
+    </p>
+  </footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
