@@ -131,6 +131,50 @@ unless explicitly allowed.
   (a valid result, not an error); `clean_file.py` exits `1` when residual
   C2PA/AI signals remain (best-effort — file is still written).
 
+## Deployment
+
+### Render (PaaS, easiest)
+
+1. Push this repo to GitHub/GitLab
+2. Render dashboard → **New → Web Service** → connect repo → runtime **Docker**
+3. Set env vars (see `.env.example`; at minimum `UPLOAD_DIR` on a persistent disk)
+4. Add a persistent **Disk** mounted at your `UPLOAD_DIR` (uploads must survive restarts)
+5. Optional: create a Redis instance → set `REDIS_URL` (needed only for async pixel removal)
+6. For Blueprint deploys, copy [`render.yaml`](render.yaml) to the repo root
+
+`render.yaml` is included as reference — Render auto-detects it.
+
+### Railway
+
+1. **New Project** → **Deploy from GitHub** → select repo
+2. Railway detects the Dockerfile automatically
+3. Add volumes to `UPLOAD_DIR` via the service's **Volumes** tab
+4. Add a Redis plugin and set `REDIS_URL`
+
+### VPS / Docker (full control)
+
+```bash
+# GPU-less host (everything except pixel removal):
+docker compose up -d --build
+
+# GPU host (Linux + nvidia-container-toolkit): add CtrlRegen/SynthID checkouts
+# into the volumes first, then:
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+```
+
+Behind a reverse proxy (Caddy/nginx) point at `127.0.0.1:8000`. Make sure
+`CORS_ORIGINS` includes your domain.
+
+### Notes
+
+- Uploads live in `UPLOAD_DIR` — always attach persistent storage; cleaned
+  files are only useful if they survive restarts.
+- The Celery worker (`worker` service) is optional unless you use async
+  pixel removal (CtrlRegen). The `app` service works standalone.
+- SynthID scoring and CtrlRegen removal require the backend checkouts to be
+  installed into the mounted directories (see Optional backends above) —
+  `/api/v1/health` reports honestly when they're missing.
+
 ## Tests
 
 ```bash

@@ -1,0 +1,44 @@
+# MarkMute deployment config for Render (https://render.com)
+#
+# 1. Create a new "Web Service" pointing at your repo (runtime: Docker,
+#    Dockerfile is used automatically)
+# 2. Set env vars per below (add OPENAI_API_KEY etc. when you enable rewrite)
+# 3. Create a Redis instance in the Render dashboard and set REDIS_URL to its
+#    connection string (optional — only needed for async pixel removal)
+#
+# To use fully-automated Blueprint deploys, copy this file to render.yaml
+# at the repo root.
+
+services:
+  - type: web
+    name: markmute
+    runtime: docker
+    plan: free
+    envVars:
+      - key: APP_NAME
+        value: MarkMute
+      - key: DEBUG
+        value: "false"
+      - key: MAX_FILE_SIZE
+        value: "268435456"
+      - key: MAX_INPUT_SIZE
+        value: "268435456"
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      # Create a Redis instance in the dashboard, then set its connection string:
+      - key: REDIS_URL
+        sync: false
+      # Optional: rewrite backends
+      # - key: OPENAI_API_KEY
+      #   sync: false
+      # - key: WATERMARKS_REWRITE_API_KEY
+      #   sync: false
+      # Optional: pixel backends (GPU machines only)
+      # - key: NOAI_WATERMARK_DIR
+      #   value: /opt/noai-watermark
+      # - key: REVERSE_SYNTHID_DIR
+      #   value: /opt/reverse-SynthID
+    disk:
+      name: uploads
+      mountPath: /var/data
+      sizeGB: 10
