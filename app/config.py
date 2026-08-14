@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -71,3 +72,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Vercel serverless functions have an ephemeral, read-only filesystem except
+# for /tmp — redirect uploads there unless the operator set UPLOAD_DIR.
+if os.environ.get("VERCEL") and "UPLOAD_DIR" not in os.environ:
+    settings.UPLOAD_DIR = Path("/tmp/markmute-uploads")
