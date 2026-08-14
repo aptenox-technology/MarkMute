@@ -1,0 +1,14 @@
+# GPU override for GPU-enabled hosts (Linux + nvidia-container-toolkit).
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# On a plain laptop (no GPU), omit this file — the base compose runs fine.
+
+services:
+  worker:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

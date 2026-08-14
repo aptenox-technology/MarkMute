@@ -49,11 +49,17 @@ app.include_router(tasks.router)
 
 @app.get("/api/v1/health", tags=["system"])
 def health():
+    from app.services.pixel_service import pixel_service
+
+    synthid = (
+        bool(settings.REVERSE_SYNTHID_DIR)
+        and settings.REVERSE_SYNTHID_DIR.exists()
+    )
     return {
         "status": "ok",
         "app": settings.APP_NAME,
-        "synthid_available": bool(settings.REVERSE_SYNTHID_DIR),
-        "ctrlregen_available": bool(settings.NOAI_WATERMARK_DIR),
+        "synthid_available": synthid,
+        "ctrlregen_available": pixel_service.is_available(),
     }
 
 

@@ -27,13 +27,6 @@ services:
       - reverse_synthid:/opt/reverse-SynthID
     depends_on:
       - redis
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   redis:
     image: redis:7-alpine

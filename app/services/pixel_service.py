@@ -64,7 +64,9 @@ class PixelService:
     def is_available(self) -> bool:
         if not settings.NOAI_WATERMARK_DIR:
             return False
-        return Path(settings.NOAI_WATERMARK_DIR).exists()
+        d = Path(settings.NOAI_WATERMARK_DIR)
+        # A real checkout must exist — an empty mounted volume is not "available"
+        return d.exists() and any(d.iterdir())
 
 
 pixel_service = PixelService()
