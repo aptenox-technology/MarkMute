@@ -60,15 +60,12 @@ function fmtBytes(n) {
 /* ---------- theme ---------- */
 
 const themeToggle = document.getElementById("theme-toggle");
-const themeIconSun = document.getElementById("theme-icon-sun");
-const themeIconMoon = document.getElementById("theme-icon-moon");
 
 function renderThemeIcons() {
   const dark = document.documentElement.dataset.theme === "dark";
-  themeIconSun?.classList.toggle("hidden", !dark);
-  themeIconMoon?.classList.toggle("hidden", dark);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", dark ? "#020617" : "#f1f5f9");
+  if (themeToggle) themeToggle.setAttribute("aria-checked", dark ? "true" : "false");
 }
 
 function setTheme(theme) {

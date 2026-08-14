@@ -1,4 +1,4 @@
-/* MarkMute — landing page theme toggle (default: light). */
+/* MarkMute — landing page theme switch (default: light). */
 "use strict";
 
 (function () {
@@ -7,20 +7,17 @@
 })();
 
 const themeToggle = document.getElementById("theme-toggle");
-const themeIconSun = document.getElementById("theme-icon-sun");
-const themeIconMoon = document.getElementById("theme-icon-moon");
 
-function renderThemeIcons() {
+function renderThemeSwitch() {
   const dark = document.documentElement.dataset.theme === "dark";
-  if (themeIconSun) themeIconSun.classList.toggle("hidden", !dark);
-  if (themeIconMoon) themeIconMoon.classList.toggle("hidden", dark);
+  if (themeToggle) themeToggle.setAttribute("aria-checked", dark ? "true" : "false");
 }
 
 themeToggle?.addEventListener("click", () => {
   const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = next;
   localStorage.setItem("mm-theme", next);
-  renderThemeIcons();
+  renderThemeSwitch();
 });
 
-renderThemeIcons();
+renderThemeSwitch();
