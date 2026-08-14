@@ -1,5 +1,23 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "markmute": {
+      "root": ".",
+      "entrypoint": "app/main.py",
+      "functions": {
+        "app/main.py": { "maxDuration": 60, "memory": 1024 }
+      }
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "markmute"
+      }
+    }
+  ],
   "headers": [
     {
       "source": "/logo.svg",

@@ -133,6 +133,23 @@ unless explicitly allowed.
 
 ## Deployment
 
+### Vercel (current production)
+
+Live at <https://markmute.vercel.app>. Vercel runs the FastAPI app natively
+(Python service) via `vercel.json` + `pyproject.toml`:
+
+```bash
+npx vercel login
+npx vercel --prod --yes
+```
+
+Env vars (set in the Vercel dashboard or `vercel env add`):
+`MAX_FILE_SIZE` (Vercel caps function bodies at ~4.5 MB → 4194304),
+`CORS_ORIGINS`, `OPENAI_API_KEY` / `OLLAMA_HOST` (optional rewrite).
+
+Vercel caveats: uploads go to `/tmp` (ephemeral), SynthID/CtrlRegen and the
+Celery worker are unavailable — the health pills report this honestly.
+
 ### Render (PaaS, easiest)
 
 1. Push this repo to GitHub/GitLab

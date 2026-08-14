@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://markmute.aptenox.com/sitemap.xml
+Sitemap: https://markmute.vercel.app/sitemap.xml

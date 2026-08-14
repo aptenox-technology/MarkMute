@@ -49,7 +49,7 @@ def test_sitemap_xml(client):
     assert res.headers["content-type"].startswith("application/xml")
     body = res.text
     for loc in ("/", "/app", "/features", "/about", "/privacy"):
-        assert f"https://markmute.aptenox.com{loc}" in body, f"sitemap missing {loc}"
+        assert f"https://markmute.vercel.app{loc}" in body, f"sitemap missing {loc}"
 
 
 def test_robots_txt(client):

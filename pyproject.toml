@@ -2,7 +2,15 @@
 name = "markmute"
 version = "1.0.0"
 requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
+    "pydantic-settings>=2.4",
+    "celery>=5.4",
+    "redis>=5.0",
+]
 
-# Vercel native FastAPI preset: load the app instance from app.main
+# Vercel native FastAPI preset: load the app instance from app/main.py
 [tool.vercel]
 entrypoint = "app.main:app"
