@@ -30,10 +30,17 @@ async function api(path, opts = {}) {
 function setBusy(btn, busy, label) {
   if (!btn) return;
   btn.disabled = busy;
-  btn.dataset.orig = btn.dataset.orig || btn.textContent;
-  btn.innerHTML = busy
-    ? `<span class="spinner"></span> ${label || "Working…"}`
-    : btn.dataset.orig;
+  const spinner = btn.querySelector(".btn-spinner");
+  const labelEl = btn.querySelector(".btn-label");
+  if (spinner) spinner.classList.toggle("hidden", !busy);
+  if (labelEl) {
+    if (busy) {
+      if (!btn.dataset.label) btn.dataset.label = labelEl.textContent;
+      labelEl.textContent = label || "Working…";
+    } else {
+      labelEl.textContent = btn.dataset.label || labelEl.textContent;
+    }
+  }
 }
 
 function esc(s) {
@@ -89,64 +96,143 @@ document.querySelector(".tab-btn").classList.add("active");
 
 /* ---------- health ---------- */
 
+function setPill(id, text, ok) {
+  const pill = document.getElementById(id);
+  if (!pill) return;
+  const dot = pill.querySelector(".status-dot");
+  const txt = pill.querySelector(".status-text");
+  if (dot) { dot.classList.toggle("ok", ok); dot.classList.toggle("err", !ok); }
+  if (txt) txt.textContent = text;
+}
+
 api("/health").then((h) => {
-  const badge = document.getElementById("health-badge");
-  badge.textContent = `API online · SynthID ${h.synthid_available ? "✓" : "✗"} · CtrlRegen ${h.ctrlregen_available ? "✓" : "✗"}`;
-  badge.classList.add("theme-chip-ok");
+  setPill("status-api", "API online", true);
+  setPill("status-synthid", `SynthID ${h.synthid_available ? "online" : "offline"}`, h.synthid_available);
+  setPill("status-ctrlregen", `CtrlRegen ${h.ctrlregen_available ? "online" : "offline"}`, h.ctrlregen_available);
 }).catch(() => {
-  const badge = document.getElementById("health-badge");
-  badge.textContent = "API offline";
-  badge.classList.add("badge-error");
+  setPill("status-api", "API offline", false);
+  setPill("status-synthid", "SynthID offline", false);
+  setPill("status-ctrlregen", "CtrlRegen offline", false);
 });
 
-/* ================= TEXT ================= */
+/* ---------- text helpers ---------- */
 
 const textInput = document.getElementById("text-input");
 const textOutput = document.getElementById("text-output");
 const textReport = document.getElementById("text-report");
 const textVerdict = document.getElementById("text-verdict");
+const resultEmpty = document.getElementById("result-empty");
 
-function renderTextHits(data) {
-  textReport.classList.remove("empty");
-  const hits = data.hits || [];
-  if (data.suspicious_total === 0) {
-    textReport.textContent = "✓ No invisible Unicode characters or space homoglyphs detected.";
-    textVerdict.className = "badge-clean text-xs font-semibold px-3 py-1 rounded-full";
-    textVerdict.textContent = "CLEAN";
-    textVerdict.classList.remove("hidden");
-    return;
-  }
-  const lines = [`⚠ ${data.suspicious_total} suspicious character class(es) found (${data.length} chars scanned):`, ""];
-  hits.forEach((h) => {
-    lines.push(`• ${h.codepoint} — ${h.label}`);
-    lines.push(`  kind: ${h.kind} · confidence: ${h.confidence} · count: ${h.count}`);
-  });
-  textReport.textContent = lines.join("\n");
-  textVerdict.className = "badge-suspicious text-xs font-semibold px-3 py-1 rounded-full";
-  textVerdict.textContent = "SUSPICIOUS";
-  textVerdict.classList.remove("hidden");
+function showTextReport() {
+  resultEmpty?.classList.add("hidden");
+  textReport.classList.remove("hidden");
 }
 
+function showTextEmpty() {
+  resultEmpty?.classList.remove("hidden");
+  textReport.classList.add("hidden");
+  textReport.innerHTML = "";
+}
+
+function confBadge(conf) {
+  const n = typeof conf === "number" ? conf : (conf === "high" ? 1 : conf === "medium" || conf === "med" ? 0.5 : 0);
+  const level = n >= 0.7 ? ["conf-high", "HIGH"] : n >= 0.4 ? ["conf-med", "MEDIUM"] : ["conf-low", "LOW"];
+  return `<span class="confidence-badge ${level[0]}">${level[1]}</span>`;
+}
+
+function renderTextHits(data) {
+  showTextReport();
+  const hits = data.hits || [];
+  textVerdict.classList.remove("hidden");
+  if (data.suspicious_total === 0) {
+    textVerdict.className = "badge-clean text-xs font-semibold px-3 py-1 rounded-full";
+    textVerdict.textContent = "CLEAN";
+    textReport.innerHTML = `<div class="finding-card"><div class="finding-label">No invisible Unicode characters or space homoglyphs detected.</div></div>`;
+    return;
+  }
+  textVerdict.className = "badge-suspicious text-xs font-semibold px-3 py-1 rounded-full";
+  textVerdict.textContent = "SUSPICIOUS";
+  const cards = hits.map((h) => `
+    <div class="finding-card">
+      <div class="finding-card-head">
+        <div>
+          <div class="finding-label">${esc(h.codepoint || h.label)}</div>
+          <div class="finding-desc">${esc(h.label || h.kind || "")}</div>
+        </div>
+        ${confBadge(h.confidence)}
+      </div>
+      <div class="finding-reasons">
+        <div class="reason-row"><span class="reason-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.29 3.86l-8.2 14.2A2 2 0 003.8 21h16.4a2 2 0 001.7-3.06l-8.2-14.2a2 2 0 00-3.4 0z" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>${esc(h.kind || "invisible character")} · count: ${h.count ?? "?"}</span></div>
+      </div>
+    </div>`).join("");
+  textReport.innerHTML = `
+    <p class="mb-3">Found <strong>${data.suspicious_total}</strong> suspicious character class(es) in ${data.length ?? "?"} scanned chars:</p>
+    ${cards}`;
+}
+
+function updateTextStats() {
+  const el = document.getElementById("char-count");
+  if (el) el.textContent = textInput.value.length;
+  const inv = document.getElementById("invisible-count");
+  const num = document.getElementById("invisible-num");
+  const n = countInvisible(textInput.value);
+  if (num) num.textContent = n;
+  if (inv) inv.style.display = n > 0 ? "inline-flex" : "none";
+}
+
+function countInvisible(s) {
+  if (!s) return 0;
+  const re = /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u00AD\u061C\uFE00-\uFE0F\uE0000-\uE007F]/g;
+  const m = s.match(re);
+  return m ? m.length : 0;
+}
+
+textInput?.addEventListener("input", updateTextStats);
+
+async function copyText() {
+  try {
+    await navigator.clipboard.writeText(textOutput.value || textReport.textContent || "");
+    const lbl = document.getElementById("copy-label");
+    if (lbl) { lbl.textContent = "Copied!"; setTimeout(() => (lbl.textContent = "Copy"), 1500); }
+    toast("Copied to clipboard.", "success");
+  } catch { toast("Copy failed", "error"); }
+}
+
+function downloadText() {
+  const content = textOutput.value || textReport.textContent || "";
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "markmute-output.txt";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ================= TEXT ================= */
+
 document.getElementById("text-paste").addEventListener("click", async () => {
-  try { textInput.value = await navigator.clipboard.readText(); } catch { toast("Clipboard unavailable", "error"); }
+  try { textInput.value = await navigator.clipboard.readText(); updateTextStats(); } catch { toast("Clipboard unavailable", "error"); }
 });
 
 document.getElementById("text-clear").addEventListener("click", () => {
   textInput.value = "";
   textOutput.value = "";
   textOutput.classList.add("hidden");
-  textReport.textContent = "Paste text and run Inspect.";
-  textReport.classList.add("empty");
+  document.getElementById("text-output-actions").classList.add("hidden");
+  document.getElementById("text-rewrite-options").classList.add("hidden");
   textVerdict.classList.add("hidden");
   document.getElementById("text-copy").classList.add("hidden");
-  document.getElementById("text-rewrite-settings").classList.add("hidden");
+  document.getElementById("text-download").classList.add("hidden");
+  showTextEmpty();
+  updateTextStats();
 });
 
 document.getElementById("text-inspect").addEventListener("click", async () => {
   const btn = document.getElementById("text-inspect");
   const text = textInput.value;
   if (!text) return toast("Paste some text first.", "error");
-  setBusy(btn, true);
+  setBusy(btn, true, "Inspecting…");
   try {
     const data = await api("/text/inspect", {
       method: "POST",
@@ -159,6 +245,7 @@ document.getElementById("text-inspect").addEventListener("click", async () => {
     });
     renderTextHits(data);
   } catch (e) {
+    showTextReport();
     textReport.textContent = `Inspect failed: ${e.message}`;
     toast(e.message, "error");
   } finally {
@@ -170,7 +257,7 @@ document.getElementById("text-clean").addEventListener("click", async () => {
   const btn = document.getElementById("text-clean");
   const text = textInput.value;
   if (!text) return toast("Paste some text first.", "error");
-  setBusy(btn, true);
+  setBusy(btn, true, "Cleaning…");
   try {
     const data = await api("/text/clean", {
       method: "POST",
@@ -186,13 +273,17 @@ document.getElementById("text-clean").addEventListener("click", async () => {
     });
     textOutput.value = data.cleaned_text ?? "";
     textOutput.classList.remove("hidden");
+    document.getElementById("text-output-actions").classList.remove("hidden");
     document.getElementById("text-copy").classList.remove("hidden");
+    document.getElementById("text-download").classList.remove("hidden");
     const st = data.stats || {};
+    showTextReport();
     textReport.textContent =
       `✓ Cleaned. removed=${st.removed_count ?? "?"} replaced=${st.replaced_count ?? "?"} ` +
       `length ${st.input_length ?? "?"} → ${st.output_length ?? "?"}`;
     toast("Text cleaned.", "success");
   } catch (e) {
+    showTextReport();
     textReport.textContent = `Clean failed: ${e.message}`;
     toast(e.message, "error");
   } finally {
@@ -224,7 +315,7 @@ document.getElementById("text-rewrite").addEventListener("click", async () => {
     if (!ok) return;
   }
 
-  setBusy(btn, true);
+  setBusy(btn, true, "Rewriting…");
   try {
     const data = await api("/text/rewrite", {
       method: "POST",
@@ -237,14 +328,18 @@ document.getElementById("text-rewrite").addEventListener("click", async () => {
     });
     textOutput.value = data.rewritten_text ?? "";
     textOutput.classList.remove("hidden");
+    document.getElementById("text-output-actions").classList.remove("hidden");
     document.getElementById("text-copy").classList.remove("hidden");
+    document.getElementById("text-download").classList.remove("hidden");
     const st = data.stats || {};
+    showTextReport();
     textReport.textContent =
       backend === "print-prompt"
         ? "Rewrite prompt printed (no LLM call). Configure OLLAMA_HOST or an API key to run for real."
         : `✓ Rewritten via ${backend}/${strength}. tokens_in=${st.tokens_in ?? "?"} tokens_out=${st.tokens_out ?? "?"}`;
     toast("Rewrite complete.", "success");
   } catch (e) {
+    showTextReport();
     textReport.textContent = `Rewrite failed: ${e.message}`;
     toast(e.message, "error");
   } finally {
@@ -252,11 +347,27 @@ document.getElementById("text-rewrite").addEventListener("click", async () => {
   }
 });
 
-document.getElementById("text-copy").addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(textOutput.value);
-    toast("Copied to clipboard.", "success");
-  } catch { toast("Copy failed", "error"); }
+document.getElementById("text-copy").addEventListener("click", copyText);
+document.getElementById("text-download").addEventListener("click", downloadText);
+
+/* keyboard shortcuts */
+const isMac = /Mac|iP(hone|ad|od)/.test(navigator.platform);
+if (isMac) {
+  document.querySelectorAll("#kbd-mod, #kbd-mod2, #kbd-mod3").forEach((k) => (k.textContent = "⌘"));
+}
+document.addEventListener("keydown", (e) => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (!mod) return;
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    document.getElementById("text-inspect").click();
+  } else if (e.key === "Enter" && e.shiftKey) {
+    e.preventDefault();
+    document.getElementById("text-clean").click();
+  } else if (e.key === "k" || e.key === "K") {
+    e.preventDefault();
+    document.getElementById("text-clear").click();
+  }
 });
 
 /* ================= FILES ================= */
@@ -265,7 +376,14 @@ const filesInput = document.getElementById("files-input");
 const filesDrop = document.getElementById("files-drop");
 const filesQueue = document.getElementById("files-queue");
 const filesReport = document.getElementById("files-report");
+const filesEmpty = document.getElementById("files-empty");
 let currentFile = null;
+
+function showFilesReport(text) {
+  filesEmpty?.classList.add("hidden");
+  filesReport.classList.remove("hidden");
+  if (text != null) filesReport.textContent = text;
+}
 
 filesDrop.addEventListener("click", () => filesInput.click());
 filesInput.addEventListener("change", () => handleFiles([...filesInput.files]));
@@ -300,9 +418,7 @@ async function handleFiles(files) {
 
 async function inspectCurrentFile() {
   if (!currentFile) return;
-  setBusy(null, true);
-  filesReport.textContent = "Inspecting…";
-  filesReport.classList.remove("empty");
+  showFilesReport("Inspecting…");
   document.getElementById("files-name").textContent = currentFile.filename;
   document.getElementById("files-actions").classList.add("hidden");
   document.getElementById("files-download").classList.add("hidden");
@@ -312,9 +428,7 @@ async function inspectCurrentFile() {
     document.getElementById("files-actions").classList.remove("hidden");
     buildFileActions();
   } catch (e) {
-    filesReport.textContent = `Inspect failed: ${e.message}`;
-  } finally {
-    setBusy(null, false);
+    showFilesReport(`Inspect failed: ${e.message}`);
   }
 }
 
@@ -338,15 +452,16 @@ function renderFileReport(detail) {
   if (detail.still_has_c2pa) lines.push("", "⚠ residual C2PA signals may remain");
   if (detail.still_has_ai_metadata) lines.push("⚠ residual AI metadata may remain");
 
-  filesReport.textContent = lines.join("\n");
+  showFilesReport(lines.join("\n"));
 }
 
 function buildFileActions() {
   const wrap = document.getElementById("files-actions");
   wrap.innerHTML = "";
   const btn = document.createElement("button");
-  btn.className = "btn-primary";
-  btn.textContent = "Clean metadata";
+  btn.className = "btn btn-primary";
+  btn.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><span class="btn-spinner spinner hidden"></span><span class="btn-label">Clean metadata</span>`;
+  btn.dataset.label = "Clean metadata";
   btn.addEventListener("click", cleanCurrentFile);
   wrap.appendChild(btn);
 }
@@ -362,13 +477,13 @@ async function cleanCurrentFile() {
     dl.classList.remove("hidden");
     const a = document.createElement("a");
     a.href = res.download_url;
-    a.className = "btn-secondary";
-    a.textContent = "⬇ Download cleaned file";
+    a.className = "btn btn-secondary";
+    a.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg><span class="btn-label">Download cleaned file</span>`;
     a.download = "";
     dl.appendChild(a);
     toast(res.detail.residual ? "Cleaned (residual signals remain — best-effort)." : "File cleaned.", "success");
   } catch (e) {
-    filesReport.textContent = `Clean failed: ${e.message}`;
+    showFilesReport(`Clean failed: ${e.message}`);
     toast(e.message, "error");
   } finally {
     setBusy(btn, false);
@@ -381,8 +496,15 @@ const imagesInput = document.getElementById("images-input");
 const imagesDrop = document.getElementById("images-drop");
 const imagesQueue = document.getElementById("images-queue");
 const imagesReport = document.getElementById("images-report");
+const imagesEmpty = document.getElementById("images-empty");
 const imagesPreview = document.getElementById("images-preview");
 let currentImage = null;
+
+function showImagesReport(text) {
+  imagesEmpty?.classList.add("hidden");
+  imagesReport.classList.remove("hidden");
+  if (text != null) imagesReport.textContent = text;
+}
 
 imagesDrop.addEventListener("click", () => imagesInput.click());
 imagesInput.addEventListener("change", () => handleImage([...imagesInput.files]));
@@ -417,8 +539,7 @@ async function handleImage(files) {
 }
 
 async function inspectCurrentImage() {
-  imagesReport.textContent = "Inspecting…";
-  imagesReport.classList.remove("empty");
+  showImagesReport("Inspecting…");
   document.getElementById("images-actions").classList.add("hidden");
   document.getElementById("images-download").classList.add("hidden");
   document.getElementById("images-task").classList.add("hidden");
@@ -428,7 +549,7 @@ async function inspectCurrentImage() {
     document.getElementById("images-actions").classList.remove("hidden");
     buildImageActions();
   } catch (e) {
-    imagesReport.textContent = `Inspect failed: ${e.message}`;
+    showImagesReport(`Inspect failed: ${e.message}`);
   }
 }
 
@@ -445,27 +566,30 @@ function renderImageReport(detail) {
     detail.actions.forEach((a) => lines.push(`  - ${a}`));
   }
   if (detail.still_has_c2pa) lines.push("", "⚠ residual C2PA signals may remain");
-  imagesReport.textContent = lines.join("\n");
+  showImagesReport(lines.join("\n"));
 }
 
 function buildImageActions() {
   const wrap = document.getElementById("images-actions");
   wrap.innerHTML = "";
   const clean = document.createElement("button");
-  clean.className = "btn-primary";
-  clean.textContent = "Clean metadata";
+  clean.className = "btn btn-primary";
+  clean.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><span class="btn-spinner spinner hidden"></span><span class="btn-label">Clean metadata</span>`;
+  clean.dataset.label = "Clean metadata";
   clean.addEventListener("click", cleanCurrentImage);
   wrap.appendChild(clean);
 
   const score = document.createElement("button");
-  score.className = "btn-secondary";
-  score.textContent = "SynthID score";
+  score.className = "btn btn-secondary";
+  score.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span class="btn-spinner spinner hidden"></span><span class="btn-label">SynthID score</span>`;
+  score.dataset.label = "SynthID score";
   score.addEventListener("click", scoreCurrentImage);
   wrap.appendChild(score);
 
   const pixel = document.createElement("button");
-  pixel.className = "btn-secondary";
-  pixel.textContent = "Remove pixel watermark (CtrlRegen)";
+  pixel.className = "btn btn-secondary";
+  pixel.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9" stroke-linecap="round"/><path d="M21 3v6h-6"/></svg><span class="btn-label">Remove pixel watermark (CtrlRegen)</span>`;
+  pixel.dataset.label = "Remove pixel watermark (CtrlRegen)";
   pixel.addEventListener("click", startPixelRemoval);
   wrap.appendChild(pixel);
 }
@@ -481,13 +605,13 @@ async function cleanCurrentImage() {
     dl.classList.remove("hidden");
     const a = document.createElement("a");
     a.href = res.download_url;
-    a.className = "btn-secondary";
-    a.textContent = "⬇ Download cleaned image";
+    a.className = "btn btn-secondary";
+    a.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg><span class="btn-label">Download cleaned image</span>`;
     a.download = "";
     dl.appendChild(a);
     toast("Image cleaned.", "success");
   } catch (e) {
-    imagesReport.textContent = `Clean failed: ${e.message}`;
+    showImagesReport(`Clean failed: ${e.message}`);
     toast(e.message, "error");
   } finally {
     setBusy(btn, false);
@@ -500,10 +624,11 @@ async function scoreCurrentImage() {
   try {
     const res = await api(`/images/score/${currentImage.file_id}`, { method: "POST" });
     const score = res.detail.score ?? res.detail.synthid_score;
-    imagesReport.textContent =
+    showImagesReport(
       score != null
         ? `SynthID score: ${score}\n\n(interpretation depends on the scorer build — see raw output below)\n\n${JSON.stringify(res.detail, null, 2)}`
-        : JSON.stringify(res.detail, null, 2);
+        : JSON.stringify(res.detail, null, 2)
+    );
   } catch (e) {
     toast(`SynthID scoring failed: ${e.message}`, "error");
   } finally {
@@ -534,8 +659,9 @@ function pollTask(taskId, box, downloadUrl) {
         dl.classList.remove("hidden");
         const a = document.createElement("a");
         a.href = downloadUrl;
-        a.className = "btn-secondary";
-        a.textContent = "⬇ Download processed image";
+        a.className = "btn btn-secondary";
+        a.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg><span class="btn-label">Download processed image</span>`;
+        a.download = "";
         dl.appendChild(a);
         toast("Pixel watermark removal complete.", "success");
         return;
