@@ -254,6 +254,8 @@ html[data-theme="light"] .badge-error { color: #be123c; }
 .theme-chip.theme-chip-ok { background: rgba(16, 185, 129, 0.15); color: var(--text); border-color: rgba(16, 185, 129, 0.3); }
 .theme-subpanel { background: var(--secondary-bg); border: 1px solid var(--panel-border); color: var(--secondary-text); }
 .theme-faint { color: var(--text-faint); }
+.theme-muted { color: var(--text-muted); }
+.theme-ring { --tw-ring-color: var(--panel-border); }
 .theme-ok { color: #34d399; }
 .theme-err { color: #fb7185; }
 html[data-theme="light"] .theme-ok { color: #059669; }
