@@ -50,6 +50,31 @@ function fmtBytes(n) {
   return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+/* ---------- theme ---------- */
+
+const themeToggle = document.getElementById("theme-toggle");
+const themeIconSun = document.getElementById("theme-icon-sun");
+const themeIconMoon = document.getElementById("theme-icon-moon");
+
+function renderThemeIcons() {
+  const dark = document.documentElement.dataset.theme === "dark";
+  themeIconSun?.classList.toggle("hidden", !dark);
+  themeIconMoon?.classList.toggle("hidden", dark);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", dark ? "#020617" : "#f1f5f9");
+}
+
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("mm-theme", theme);
+  renderThemeIcons();
+}
+
+renderThemeIcons();
+themeToggle?.addEventListener("click", () => {
+  setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+});
+
 /* ---------- tabs ---------- */
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -67,8 +92,7 @@ document.querySelector(".tab-btn").classList.add("active");
 api("/health").then((h) => {
   const badge = document.getElementById("health-badge");
   badge.textContent = `API online · SynthID ${h.synthid_available ? "✓" : "✗"} · CtrlRegen ${h.ctrlregen_available ? "✓" : "✗"}`;
-  badge.classList.remove("text-slate-400", "border-slate-700");
-  badge.classList.add("text-emerald-400", "border-emerald-600");
+  badge.classList.add("theme-chip-ok");
 }).catch(() => {
   const badge = document.getElementById("health-badge");
   badge.textContent = "API offline";
@@ -255,20 +279,20 @@ async function handleFiles(files) {
   for (const f of files.slice(0, 3)) {
     const item = document.createElement("div");
     item.className = "queued-item";
-    item.innerHTML = `<span>${esc(f.name)} <span class="text-slate-400">(${fmtBytes(f.size)})</span></span><span class="spinner"></span>`;
+    item.innerHTML = `<span>${esc(f.name)} <span class="theme-faint">(${fmtBytes(f.size)})</span></span><span class="spinner"></span>`;
     filesQueue.appendChild(item);
     try {
       const data = await api("/files/upload", {
         method: "POST",
         body: (() => { const fd = new FormData(); fd.append("file", f); return fd; })(),
       });
-      item.innerHTML = `<span>${esc(f.name)} → <span class="text-emerald-400">${data.file_id.slice(0, 8)}</span></span><button class="btn-ghost text-xs inspect-this" data-fid="${data.file_id}">Inspect</button>`;
+      item.innerHTML = `<span>${esc(f.name)} → <span class="theme-ok">${data.file_id.slice(0, 8)}</span></span><button class="btn-ghost text-xs inspect-this" data-fid="${data.file_id}">Inspect</button>`;
       item.querySelector(".inspect-this").addEventListener("click", () => {
         currentFile = data;
         inspectCurrentFile();
       });
     } catch (e) {
-      item.innerHTML = `<span class="text-rose-400">${esc(f.name)} — ${esc(e.message)}</span>`;
+      item.innerHTML = `<span class="theme-err">${esc(f.name)} — ${esc(e.message)}</span>`;
     }
   }
   filesInput.value = "";
@@ -373,21 +397,21 @@ async function handleImage(files) {
   if (!f) return;
   const item = document.createElement("div");
   item.className = "queued-item";
-  item.innerHTML = `<span>${esc(f.name)} <span class="text-slate-400">(${fmtBytes(f.size)})</span></span><span class="spinner"></span>`;
+  item.innerHTML = `<span>${esc(f.name)} <span class="theme-faint">(${fmtBytes(f.size)})</span></span><span class="spinner"></span>`;
   imagesQueue.appendChild(item);
   try {
     const data = await api("/images/upload", {
       method: "POST",
       body: (() => { const fd = new FormData(); fd.append("file", f); return fd; })(),
     });
-    item.innerHTML = `<span class="text-emerald-400">${esc(f.name)} uploaded</span>`;
+    item.innerHTML = `<span class="theme-ok">${esc(f.name)} uploaded</span>`;
     currentImage = data;
     document.getElementById("images-name").textContent = data.filename;
     imagesPreview.classList.remove("hidden");
     document.getElementById("images-thumb").src = URL.createObjectURL(f);
     inspectCurrentImage();
   } catch (e) {
-    item.innerHTML = `<span class="text-rose-400">${esc(f.name)} — ${esc(e.message)}</span>`;
+    item.innerHTML = `<span class="theme-err">${esc(f.name)} — ${esc(e.message)}</span>`;
   }
   imagesInput.value = "";
 }
