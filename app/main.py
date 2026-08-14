@@ -6,12 +6,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import BASE_DIR, settings
 from app.routers import files, images, tasks, text
 
 API_PREFIX = "/api/v1"
+
+PAGES_DIR = BASE_DIR / "app" / "static" / "pages"
+TOOL_PAGE = BASE_DIR / "app" / "static" / "app.html"
 
 
 @asynccontextmanager
@@ -45,6 +49,31 @@ app.include_router(text.router)
 app.include_router(files.router)
 app.include_router(images.router)
 app.include_router(tasks.router)
+
+
+@app.get("/", include_in_schema=False)
+def landing():
+    return FileResponse(PAGES_DIR / "landing.html")
+
+
+@app.get("/features", include_in_schema=False)
+def features():
+    return FileResponse(PAGES_DIR / "features.html")
+
+
+@app.get("/about", include_in_schema=False)
+def about():
+    return FileResponse(PAGES_DIR / "about.html")
+
+
+@app.get("/privacy", include_in_schema=False)
+def privacy():
+    return FileResponse(PAGES_DIR / "privacy.html")
+
+
+@app.get("/app", include_in_schema=False)
+def tool():
+    return FileResponse(TOOL_PAGE)
 
 
 @app.get("/api/v1/health", tags=["system"])

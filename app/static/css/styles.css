@@ -607,3 +607,7 @@ kbd {
 
 /* Text input resize grip */
 .text-input { resize: vertical; }
+.input.has-invisible {
+  border-color: rgba(234, 179, 8, 0.55);
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.12);
+}

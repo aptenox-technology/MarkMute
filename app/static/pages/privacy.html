@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — MarkMute by Aptenox</title>
+  <meta name="description" content="MarkMute privacy policy: no sign-up, no tracking cookies, no analytics. What happens to your text and uploads, storage and retention, and how the optional LLM rewrite works." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://markmute.aptenox.com/privacy" />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="MarkMute" />
+  <meta property="og:title" content="Privacy Policy — MarkMute by Aptenox" />
+  <meta property="og:description" content="No sign-up, no tracking cookies, no analytics. Read how MarkMute handles your text and files." />
+  <meta property="og:url" content="https://markmute.aptenox.com/privacy" />
+  <meta property="og:image" content="https://markmute.aptenox.com/logo.svg" />
+  <meta name="twitter:card" content="summary" />
+
+  <link rel="stylesheet" href="/css/landing.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a href="/" class="brand" aria-label="MarkMute home">
+        <img src="/logo.svg" alt="MarkMute logo" width="36" height="36" class="brand-logo" />
+        <span class="brand-name">MarkMute</span>
+        <span class="brand-by">by Aptenox</span>
+      </a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="/features">Features</a>
+        <a href="/about">About</a>
+        <a href="/privacy" aria-current="page">Privacy</a>
+      </nav>
+      <a href="/app" class="btn btn-primary btn-sm">Open the tool</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container narrow">
+        <p class="eyebrow">Legal · Effective date: August 15, 2026</p>
+        <h1>Privacy Policy</h1>
+        <p class="hero-sub">Short version: MarkMute has no sign-up, no analytics and no tracking cookies. Core cleaning is local to the server you (or your host) run. This page describes exactly what data touches our systems and what you can configure.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container narrow">
+        <article class="feature-detail">
+          <h2>1. Who we are</h2>
+          <p>MarkMute (the "Service") is a product of <strong>Aptenox</strong> (aptenox.com). Contact: <a href="mailto:hello@aptenox.com">hello@aptenox.com</a>.</p>
+        </article>
+
+        <article class="feature-detail">
+          <h2>2. Data we process</h2>
+          <ul class="feature-list">
+            <li><strong>Text you paste</strong> and <strong>files you upload</strong> (PNG, JPEG, WebP, SVG, PDF, DOCX, ODT, HTML, MD, TXT) are processed to detect and remove watermarks, metadata and invisible characters.</li>
+            <li><strong>Preferences:</strong> your light/dark theme choice is stored on your own device in your browser's local storage (key <code>mm-theme</code>). It is never sent to us.</li>
+            <li><strong>Server logs:</strong> the hosting operator's standard request logs (IP address, user agent, requested URL) may be recorded for security and operations, as with any web server.</li>
+          </ul>
+          <p>We do not use cookies for advertising or social media. We do not run analytics or tracking pixels. We do not sell or share personal data.</p>
+        </article>
+
+        <article class="feature-detail">
+          <h2>3. Where cleaning happens</h2>
+          <p>All detection and cleaning (text scanning, metadata stripping, C2PA removal, SynthID scoring, CtrlRegen pixel removal) runs on the server instance running MarkMute — your own deployment or a hosting account you control. Your content is <strong>not</strong> sent to Aptenox or any third party for these operations.</p>
+        </article>
+
+        <article class="feature-detail">
+          <h2>4. Storage and retention of uploads</h2>
+          <p>Uploaded files are stored temporarily on the server in an <code>uploads/</code> directory (raw copies) plus a <code>cleaned/</code> directory for results you download. Files are retained until removed by the operator or the storage is cleaned; the Service provides download links but no indefinite retention promise. Process only content you are allowed to store. If you run the Service yourself, retention is fully under your control.</p>
+        </article>
+
+        <article class="feature-detail">
+          <h2>5. Optional LLM rewrite</h2>
+          <p>The Rewrite feature is <strong>off by default</strong> (it prints a prompt without calling any model). If you or your operator configure an LLM backend (Ollama locally, or an OpenAI-compatible provider), the text you paste <em>may</em> be sent to that provider. The browser asks for confirmation before any remote rewrite. Backend choice, API keys and provider are configured by the operator; see the supplied configuration options (e.g. <code>OLLAMA_HOST</code>, OpenAI-compatible base URL). If you do not want text sent anywhere, keep the default "print-prompt" mode.</p>
+        </article>
+
+        <article class="feature-detail">
+          <h2>6. Cookies and local storage</h2>
+          <p>We set no functional cookies on the website. The only browser storage used is local storage for your theme preference, which never leaves your device. If your browser blocks local storage, the app still works using your system's color-scheme preference.</p>
+        </article>
+
+        <article class="feature-detail">
+          <h2>7. Security</h2>
+          <p>We follow standard security practices: secrets (API keys) are read from server-side environment configuration, not from the browser; uploads are size-limited (256 MiB); and the API can be locked down with an API key where supported by the deployment.</p>
+        </article>
+
+        <article class="feature-detail">
+          <h2>8. Your rights</h2>
+          <p>Depending on your jurisdiction (e.g. GDPR), you may have rights to access, correct or delete personal data we hold, or to complain to a supervisory authority. Since we hold no account data, these requests typically concern your own deployment's server logs and uploads — your operator can delete them at any time. Questions: <a href="mailto:hello@aptenox.com">hello@aptenox.com</a>.</p>
+        </article>
+
+        <article class="feature-detail">
+          <h2>9. Changes to this policy</h2>
+          <p>We may update this policy; the effective date at the top reflects the latest revision. Material changes will be highlighted on this page.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <img src="/logo.svg" alt="MarkMute logo" width="28" height="28" />
+        <p>MarkMute is a product by <a href="https://aptenox.com/" rel="noopener">Aptenox</a>. Best-effort, verifiable watermark &amp; metadata removal for your own content.</p>
+      </div>
+      <nav class="footer-links" aria-label="Footer product">
+        <p class="footer-title">Product</p>
+        <a href="/app">The tool</a>
+        <a href="/features">Features</a>
+        <a href="/about">About</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/sitemap.xml">Sitemap</a>
+      </nav>
+      <div class="footer-legal">
+        <p class="footer-title">Responsible use</p>
+        <p>Use MarkMute on content you own or have rights to. Local laws apply. MarkMute never claims 100% watermark-free output.</p>
+      </div>
+    </div>
+    <div class="container footer-bottom">© 2026 Aptenox · <a href="https://aptenox.com/" rel="noopener">aptenox.com</a> · MarkMute</div>
+  </footer>
+</body>
+</html>

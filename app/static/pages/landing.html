@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MarkMute — Remove Watermarks, Invisible Unicode &amp; Hidden Metadata | by Aptenox</title>
+  <meta name="description" content="Free, browser-based tool to remove invisible Unicode characters, AI and C2PA metadata, SynthID signals and pixel watermarks from text, images and files. Best-effort, verifiable cleaning — a product by Aptenox." />
+  <meta name="keywords" content="watermark removal, remove metadata, invisible unicode, zero-width characters, C2PA removal, synthid removal, pixel watermark remover, AI generated image metadata, exif remover" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://markmute.aptenox.com/" />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="apple-touch-icon" href="/logo.svg" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="MarkMute" />
+  <meta property="og:title" content="MarkMute — Remove Watermarks, Invisible Unicode &amp; Hidden Metadata" />
+  <meta property="og:description" content="Free tool to strip invisible Unicode, AI/C2PA metadata, SynthID signals and pixel watermarks from text, images and files. Best-effort and verifiable." />
+  <meta property="og:url" content="https://markmute.aptenox.com/" />
+  <meta property="og:image" content="https://markmute.aptenox.com/logo.svg" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="MarkMute — Remove Watermarks, Invisible Unicode &amp; Hidden Metadata" />
+  <meta name="twitter:description" content="Free tool to strip invisible Unicode, AI/C2PA metadata, SynthID signals and pixel watermarks from text, images and files." />
+  <meta name="twitter:image" content="https://markmute.aptenox.com/logo.svg" />
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://markmute.aptenox.com/#website",
+        "url": "https://markmute.aptenox.com/",
+        "name": "MarkMute",
+        "description": "Best-effort watermark, metadata and invisible-trace remover for text, images and files.",
+        "publisher": { "@id": "https://aptenox.com/#organization" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://markmute.aptenox.com/#app",
+        "name": "MarkMute",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Web",
+        "url": "https://markmute.aptenox.com/app",
+        "description": "Remove invisible Unicode characters, C2PA and AI metadata, and pixel watermarks from your own text, images and files.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "publisher": { "@id": "https://aptenox.com/#organization" }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://aptenox.com/#organization",
+        "name": "Aptenox",
+        "url": "https://aptenox.com/",
+        "logo": "https://aptenox.com/logo.svg"
+      }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What watermark types does MarkMute remove?",
+        "acceptedAnswer": { "@type": "Answer", "text": "MarkMute removes invisible Unicode characters (zero-width, bidi controls, tag characters), space homoglyphs, EXIF and XMP metadata, C2PA manifests, and — on capable hardware — AI SynthID signals and pixel watermarks." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is detection-based removal 100% reliable?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. MarkMute is a best-effort, verifiable tool. It reports what was found and removed, and flags residual signals (for example remaining C2PA chunks) so you can see the outcome rather than trust a promise." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does MarkMute send my text or files anywhere?",
+        "acceptedAnswer": { "@type": "Answer", "text": "By default no. Cleaning runs locally with your own hardware. Only the optional Rewrite feature can call an LLM, and only if you explicitly configure an Ollama or OpenAI-compatible backend." }
+      },
+      {
+        "@type": "Question",
+        "name": "Which file formats are supported?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Text scanning works on any pasted text. Files: PNG, JPEG, WebP, SVG, PDF, DOCX, ODT, HTML, MD and TXT. Image-only tools such as SynthID scoring and CtrlRegen pixel removal apply to PNG, JPEG and WebP." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is MarkMute free?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. MarkMute is free to use and runs as a web tool. It is a product by Aptenox." }
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/landing.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a href="/" class="brand" aria-label="MarkMute home">
+        <img src="/logo.svg" alt="MarkMute logo" width="36" height="36" class="brand-logo" />
+        <span class="brand-name">MarkMute</span>
+        <span class="brand-by">by Aptenox</span>
+      </a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="/features">Features</a>
+        <a href="/about">About</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+      <a href="/app" class="btn btn-primary btn-sm">Open the tool</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">A product by <a href="https://aptenox.com/" rel="noopener">Aptenox</a></p>
+          <h1>Remove watermarks, invisible Unicode &amp; hidden metadata — free</h1>
+          <p class="hero-sub">
+            MarkMute scans text, images and files for the traces AI models and processors leave behind:
+            zero-width characters, homoglyphs, C2PA manifests, EXIF metadata, SynthID signals and
+            pixel watermarks. Then it removes what it finds — and <strong>shows you the proof</strong>.
+          </p>
+          <div class="hero-cta">
+            <a href="/app" class="btn btn-primary btn-lg">Clean my content — it's free</a>
+            <a href="/features" class="btn btn-secondary btn-lg">See all features</a>
+          </div>
+          <p class="hero-note">No sign-up · No file uploads leave your machine for core cleaning · Best-effort and verifiable</p>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="demo-card">
+            <div class="demo-bar"><span class="demo-dot" style="background:#f87171"></span><span class="demo-dot" style="background:#fbbf24"></span><span class="demo-dot" style="background:#34d399"></span></div>
+            <p class="demo-text">Your comment said “Great work <span class="invis">&#8203;</span>thanks!” with an invisible SLFJ tag —<br /><span class="hl-good">Clean: “Great work thanks!”</span></p>
+            <div class="demo-stats">
+              <span class="demo-stat"><strong>2</strong> invisible chars</span>
+              <span class="demo-stat"><strong>1</strong> homoglyph</span>
+              <span class="demo-stat stat-ok">removed ✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Formats strip -->
+    <section class="strip">
+      <div class="container">
+        <p class="strip-label">Works with</p>
+        <p class="strip-formats">Text · PNG · JPEG · WebP · SVG · PDF · DOCX · ODT · HTML · MD · TXT</p>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="section">
+      <div class="container">
+        <h2 class="section-title">Three tabs, three kinds of cleaning</h2>
+        <p class="section-sub">Everything happens in your browser session and your own server — no account required.</p>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="feature-icon icon-text" aria-hidden="true">T</div>
+            <h3>Text watermark removal</h3>
+            <p>Detects and strips invisible Unicode: zero-width joiners, bidi override controls, variation selectors, magic-link tags, and fullwidth or Cyrillic homoglyphs that make text look edited.</p>
+            <ul class="feature-list">
+              <li>Live character counter with invisible-char badge</li>
+              <li>Confidence-rated findings you can review</li>
+              <li>Optional LLM rewrite to attack statistical watermarks</li>
+            </ul>
+            <a href="/app" class="link-arrow">Try it →</a>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon icon-image" aria-hidden="true">◉</div>
+            <h3>Image cleanup</h3>
+            <p>Inspects and purges EXIF/XMP metadata, GPS tags, thumbnails and C2PA manifests from PNG, JPEG and WebP. On capable hardware it also scores SynthID traces and regenerates pixel-watermarked regions with CtrlRegen.</p>
+            <ul class="feature-list">
+              <li>Pre/post verification with residual-signal warnings</li>
+              <li>Preserves image pixels — only metadata is touched</li>
+              <li>Optional SynthID scoring and pixel watermark removal</li>
+            </ul>
+            <a href="/app" class="link-arrow">Try it →</a>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon icon-file" aria-hidden="true">▤</div>
+            <h3>File metadata cleaning</h3>
+            <p>Cleans metadata, embedded thumbnails and AI signatures from PDFs, office documents and web assets — including mutagen and C2PA tooling wired in for documents that carry provenance chains.</p>
+            <ul class="feature-list">
+              <li>PDF, DOCX, ODT, HTML, MD, TXT, SVG</li>
+              <li>Clear report of every action taken</li>
+              <li>Residual checks instead of false promises</li>
+            </ul>
+            <a href="/app" class="link-arrow">Try it →</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="section section-alt">
+      <div class="container">
+        <h2 class="section-title">How it works</h2>
+        <ol class="steps">
+          <li><span class="step-num">1</span><div><h3>Paste or upload</h3><p>Text goes straight into the editor; images and files drop onto the corresponding tab.</p></div></li>
+          <li><span class="step-num">2</span><div><h3>Inspect &amp; review</h3><p>MarkMute reports exactly what it found — each invisible character class, metadata chunk or manifest — with confidence levels.</p></div></li>
+          <li><span class="step-num">3</span><div><h3>Clean &amp; verify</h3><p>One click removes what was found. The report re-runs so you can confirm what remains, including residual C2PA warnings.</p></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="section">
+      <div class="container narrow">
+        <h2 class="section-title">Frequently asked questions</h2>
+        <details class="faq-item">
+          <summary>What watermark types does MarkMute remove?</summary>
+          <p>Invisible Unicode characters (zero-width spaces, joiners, bidi controls, variation selectors, tag characters), space homoglyphs, EXIF/XMP metadata, embedded thumbnails, C2PA manifests, and — on capable hardware — SynthID signals and pixel watermarks via CtrlRegen.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Is detection-based removal 100% reliable?</summary>
+          <p>No — and we say so honestly. MarkMute is best-effort and verifiable: it reports what was found and removed, and explicitly warns when residual signals remain. If a C2PA chunk survives, you'll see it flagged.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Does MarkMute send my text or files anywhere?</summary>
+          <p>No, not by default. Core cleaning runs using your own server infrastructure. The only exception is the optional Rewrite feature: it sends text to an LLM <em>only</em> if you explicitly configure an Ollama or OpenAI-compatible backend, and it asks for confirmation first.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Which file formats are supported?</summary>
+          <p>Text: anything you paste. Files: PNG, JPEG, WebP, SVG, PDF, DOCX, ODT, HTML, MD, TXT up to 256 MiB. Some image-only tools (SynthID scoring, CtrlRegen removal) apply to PNG, JPEG and WebP.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Is MarkMute free? Is a sign-up needed?</summary>
+          <p>Yes, MarkMute is free and needs no sign-up. It is a product by Aptenox.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+      <div class="container">
+        <h2>Ready to clean your content?</h2>
+        <p>Open the tool and run your first scan in seconds.</p>
+        <a href="/app" class="btn btn-primary btn-lg">Open MarkMute — free</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <img src="/logo.svg" alt="MarkMute logo" width="28" height="28" />
+        <p>MarkMute is a product by <a href="https://aptenox.com/" rel="noopener">Aptenox</a>. Best-effort, verifiable watermark &amp; metadata removal for your own content.</p>
+      </div>
+      <nav class="footer-links" aria-label="Footer product">
+        <p class="footer-title">Product</p>
+        <a href="/app">The tool</a>
+        <a href="/features">Features</a>
+        <a href="/about">About</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/sitemap.xml">Sitemap</a>
+      </nav>
+      <div class="footer-legal">
+        <p class="footer-title">Responsible use</p>
+        <p>Use MarkMute on content you own or have rights to. Local laws apply. MarkMute never claims 100% watermark-free output.</p>
+      </div>
+    </div>
+    <div class="container footer-bottom">© 2026 Aptenox · <a href="https://aptenox.com/" rel="noopener">aptenox.com</a> · MarkMute</div>
+  </footer>
+</body>
+</html>

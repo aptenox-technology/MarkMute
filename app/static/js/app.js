@@ -178,6 +178,7 @@ function updateTextStats() {
   const n = countInvisible(textInput.value);
   if (num) num.textContent = n;
   if (inv) inv.style.display = n > 0 ? "inline-flex" : "none";
+  textInput.classList.toggle("has-invisible", n > 0);
 }
 
 function countInvisible(s) {
