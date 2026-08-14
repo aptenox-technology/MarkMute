@@ -1,51 +1,7 @@
 /* MarkMute — plain CSS (works with Tailwind CDN; no build step).
    Theming is driven by CSS variables swapped via html[data-theme]. */
 
-:root {
-  --bg: #020617;
-  --bg-header: rgba(15, 23, 42, 0.6);
-  --panel-bg: rgba(15, 23, 42, 0.7);
-  --panel-border: #334155;
-  --input-bg: #020617;
-  --input-border: #475569;
-  --report-bg: #020617;
-  --text: #f1f5f9;
-  --text-muted: #94a3b8;
-  --text-faint: #64748b;
-  --accent: #6366f1;
-  --accent-hover: #4338ca;
-  --accent-soft: rgba(99, 102, 241, 0.05);
-  --secondary-bg: #1e293b;
-  --secondary-hover: #334155;
-  --secondary-text: #e2e8f0;
-  --danger-bg: rgba(225, 29, 72, 0.8);
-  --danger-hover: #e11d48;
-  --toast-border: #475569;
-  --toast-info-bg: #1e293b;
-  --toast-info-text: #f1f5f9;
-  --toast-success-bg: rgba(6, 78, 59, 0.9);
-  --toast-success-border: #059669;
-  --toast-success-text: #d1fae5;
-  --toast-error-bg: rgba(136, 19, 55, 0.9);
-  --toast-error-border: #e11d48;
-  --toast-error-text: #ffe4e6;
-  --hit-label: #fcd34d;
-  --dropzone-text: #cbd5e1;
-  --placeholder: #475569;
-  --border-soft: #1e293b;
-  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
-  --soft-bg: #1e293b;
-  --soft-text: #cbd5e1;
-  --soft-border: #334155;
-  --soft-hover: #293548;
-  --soft-border-hover: #475569;
-  --chip-icon: #94a3b8;
-  --chip-bg: #1e293b;
-  --card-bg: rgba(15, 23, 42, 0.5);
-  --tooltip-bg: #1e293b;
-  --tooltip-text: #cbd5e1;
-}
-
+:root,
 html[data-theme="light"] {
   --bg: #f1f5f9;
   --bg-header: rgba(255, 255, 255, 0.75);
@@ -89,6 +45,51 @@ html[data-theme="light"] {
   --card-bg: #ffffff;
   --tooltip-bg: #ffffff;
   --tooltip-text: #334155;
+}
+
+html[data-theme="dark"] {
+  --bg: #020617;
+  --bg-header: rgba(15, 23, 42, 0.6);
+  --panel-bg: rgba(15, 23, 42, 0.7);
+  --panel-border: #334155;
+  --input-bg: #020617;
+  --input-border: #475569;
+  --report-bg: #020617;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  --accent: #6366f1;
+  --accent-hover: #4338ca;
+  --accent-soft: rgba(99, 102, 241, 0.05);
+  --secondary-bg: #1e293b;
+  --secondary-hover: #334155;
+  --secondary-text: #e2e8f0;
+  --danger-bg: rgba(225, 29, 72, 0.8);
+  --danger-hover: #e11d48;
+  --toast-border: #475569;
+  --toast-info-bg: #1e293b;
+  --toast-info-text: #f1f5f9;
+  --toast-success-bg: rgba(6, 78, 59, 0.9);
+  --toast-success-border: #059669;
+  --toast-success-text: #d1fae5;
+  --toast-error-bg: rgba(136, 19, 55, 0.9);
+  --toast-error-border: #e11d48;
+  --toast-error-text: #ffe4e6;
+  --hit-label: #fcd34d;
+  --dropzone-text: #cbd5e1;
+  --placeholder: #475569;
+  --border-soft: #1e293b;
+  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  --soft-bg: #1e293b;
+  --soft-text: #cbd5e1;
+  --soft-border: #334155;
+  --soft-hover: #293548;
+  --soft-border-hover: #475569;
+  --chip-icon: #94a3b8;
+  --chip-bg: #1e293b;
+  --card-bg: rgba(15, 23, 42, 0.5);
+  --tooltip-bg: #1e293b;
+  --tooltip-text: #cbd5e1;
 }
 
 body {

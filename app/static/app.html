@@ -9,13 +9,12 @@
   <link rel="canonical" href="https://markmute.vercel.app/app" />
   <link rel="icon" type="image/svg+xml" href="/logo.svg" />
   <link rel="apple-touch-icon" href="/logo.svg" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#f1f5f9" />
   <script>
-    // Apply saved theme before paint to avoid flash
+    // Apply saved theme before paint to avoid flash (default: light)
     (function () {
       const saved = localStorage.getItem("mm-theme");
-      const theme = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-      document.documentElement.dataset.theme = theme;
+      document.documentElement.dataset.theme = saved || "light";
     })();
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
