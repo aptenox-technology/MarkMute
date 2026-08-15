@@ -152,11 +152,17 @@ print('ctrlregen_available:', h.get('ctrlregen_available'))
 "
 
 say "GPU backend is up on :8000 — starting Cloudflare tunnel..."
-ARCH="$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')"
 if ! command -v cloudflared >/dev/null 2>&1; then
-  curl -fsSL -o /usr/local/bin/cloudflared "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH"
-  chmod +x /usr/local/bin/cloudflared
+  say "installing cloudflared..."
+  # Try pip (PyPI wheel bundles the binary) first, then the GitHub binary.
+  if ! $PIP install -q cloudflared 2>/dev/null || ! command -v cloudflared >/dev/null 2>&1; then
+    ARCH="$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')"
+    curl -fsSL --connect-timeout 20 --retry 5 \
+      -o /usr/local/bin/cloudflared "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH"
+    chmod +x /usr/local/bin/cloudflared
+  fi
 fi
+command -v cloudflared >/dev/null 2>&1 || { echo "cloudflared install failed" >&2; exit 1; }
 nohup cloudflared tunnel --url http://127.0.0.1:8000 > /tmp/tunnel.log 2>&1 &
 echo "waiting for tunnel URL..."
 
