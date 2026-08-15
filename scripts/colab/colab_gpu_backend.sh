@@ -192,6 +192,13 @@ echo "Your quick Tunnel is live at: $TUNNEL_URL  (registered with $REGISTER_URL)
 # exists" — stuck/dying processes (zombies, half-shutdown) fool pgrep and made
 # uvicorn/celery stay dead while the watchdog "saw" them alive.
 _http_code() { curl -s -o /dev/null -m 3 -w '%{http_code}' "$1"; }
+# A tunnel is only healthy when the ORIGIN answered (guard replies 200/403).
+# Edge-level errors (530/521/522/502/...) mean cloudflared can't reach us.
+_tunnel_ok() {
+  local c
+  c="$(_http_code "$1/api/v1/health")"
+  [ "$c" = "200" ] || [ "$c" = "403" ]
+}
 
 watchdog() {
   # --- uvicorn: once twice-unhealthy with a live process, it's stuck: kill -9 ---
@@ -237,7 +244,7 @@ watchdog() {
   # registered URL goes stale and the public app gets 530. Detect it and bring
   # up a fresh tunnel, then re-register so the app still routes to us.
   TUNNEL_URL="$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/tunnel.log | head -1 || true)"
-  if [ -n "$TUNNEL_URL" ] && [ "$(_http_code "$TUNNEL_URL/api/v1/health")" != "000" ]; then
+  if [ -n "$TUNNEL_URL" ] && _tunnel_ok "$TUNNEL_URL"; then
     : # tunnel healthy (403/200 both fine — the guard answers with 403 on bad keys)
   else
     echo "$(date -u +%T) tunnel unhealthy ($TUNNEL_URL) — relaunching..." >> /tmp/watchdog.log
@@ -250,7 +257,7 @@ watchdog() {
       [ -n "$NEW_URL" ] && break
       sleep 2
     done
-    if [ -n "$NEW_URL" ] && [ "$(_http_code "$NEW_URL/api/v1/health")" != "000" ]; then
+    if [ -n "$NEW_URL" ] && _tunnel_ok "$NEW_URL"; then
       REGISTER_URL="${PIXEL_REGISTER_URL:-https://markmute.vercel.app}"
       TOKEN_JSON=""
       [ -n "${PIXEL_REGISTER_TOKEN:-}" ] && TOKEN_JSON=",\"token\":\"$PIXEL_REGISTER_TOKEN\""
