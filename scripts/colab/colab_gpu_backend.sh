@@ -15,9 +15,11 @@
 #   !PIXEL_REGISTER_TOKEN=mysharedtoken bash scripts/colab/colab_gpu_backend.sh
 #
 # Usage in a Colab notebook (Runtime -> Change runtime type -> T4 GPU):
-#   !git clone https://github.com/aptenox-technology/MarkMute.git
+#   !git clone --recurse-submodules https://github.com/aptenox-technology/MarkMute.git
 #   %cd MarkMute
 #   !bash scripts/colab/colab_gpu_backend.sh
+# (Already cloned without --recurse-submodules? Just re-run the script — it
+#  fetches the submodule itself.)
 #
 # Sessions last up to ~12 h on the free tier — restart the cell anytime.
 # =============================================================================
@@ -42,6 +44,13 @@ nvidia-smi >/dev/null 2>&1 || {
 apt-get update -qq >/dev/null
 apt-get install -y -qq redis-server exiftool libmagic1 >/dev/null
 PIP="$(command -v pip3 || command -v pip)"
+
+# --- 2b. Upstream toolkit submodule (missing after a plain `git clone`) ----------
+REQ_DIR="upstream/watermarks-remover/skills/remove-ai-marks/scripts"
+if [ ! -f "$REQ_DIR/requirements-ctrlregen.txt" ]; then
+  say "fetching upstream toolkit submodule..."
+  git submodule update --init --recursive
+fi
 
 # --- 3. Python deps (Colab already ships CUDA torch — keep it) ------------------
 $PIP install -q -r requirements.txt \

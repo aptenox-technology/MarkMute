@@ -198,7 +198,7 @@ it to the live site with a transparent proxy:
    type → T4 GPU**.
 2. In a cell:
    ```bash
-   !git clone https://github.com/aptenox-technology/MarkMute.git
+   !git clone --recurse-submodules https://github.com/aptenox-technology/MarkMute.git
    %cd MarkMute
    !bash scripts/colab/colab_gpu_backend.sh
    ```
