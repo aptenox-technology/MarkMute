@@ -21,6 +21,7 @@ registration endpoints are always mounted.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -183,16 +184,26 @@ async def _forward_image_op(request: Request, op: str, file_id: str) -> Streamin
         data = fh.read()
     mime = guess_type(file_path.name)[0] or "application/octet-stream"
 
-    client = _client()
-    upload_resp = await client.post(
-        f"{base}/api/v1/images/upload",
-        files={"file": (file_path.name, data, mime)},
-        headers=auth,
-    )
-    if upload_resp.status_code >= 400:
+    try:
+        client = _client()
+        upload_resp = await asyncio.wait_for(
+            client.post(
+                f"{base}/api/v1/images/upload",
+                files={"file": (file_path.name, data, mime)},
+                headers=auth,
+            ),
+            timeout=60,
+        )
+    except Exception as e:  # noqa: BLE001 — surface tunnel/network failures
         return JSONResponse(
             status_code=502,
-            content={"detail": f"GPU backend upload failed: {upload_resp.status_code}"},
+            content={"detail": f"GPU backend unreachable: {type(e).__name__}: {e}"},
+        )
+    if upload_resp.status_code >= 400:
+        body = upload_resp.text[:300]
+        return JSONResponse(
+            status_code=502,
+            content={"detail": f"GPU backend upload failed ({upload_resp.status_code}): {body}"},
         )
     new_id = upload_resp.json().get("file_id")
 
@@ -200,9 +211,15 @@ async def _forward_image_op(request: Request, op: str, file_id: str) -> Streamin
     if request.url.query:
         target += f"?{request.url.query}"
 
-    resp = await client.send(
-        client.build_request(request.method, target, headers=auth), stream=True
-    )
+    try:
+        resp = await client.send(
+            client.build_request(request.method, target, headers=auth), stream=True
+        )
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(
+            status_code=502,
+            content={"detail": f"GPU backend unreachable: {type(e).__name__}: {e}"},
+        )
     if resp.status_code >= 400:
         try:
             raw = (await resp.aread()).decode("utf-8", "replace")[:500]
