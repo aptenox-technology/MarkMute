@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     PIXEL_REMOTE_KEY: str = ""
     PIXEL_REMOTE_ENFORCE: bool = False
 
+    # Optional: GPU backend registry (Upstash/Redis). The GPU host
+    # self-registers its tunnel URL + key here with a TTL, so no manual env
+    # updates or redeploys are needed when a Colab session rotates. Env
+    # PIXEL_REMOTE_URL, when set, always wins over the registry.
+    PIXEL_REGISTRY_REDIS_URL: str = ""
+    PIXEL_REGISTRY_TTL: int = 12 * 60 * 60
+    PIXEL_REGISTER_TOKEN: str = ""
+
     # Security
     CORS_ORIGINS: str = "http://localhost:8000"
 

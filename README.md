@@ -202,19 +202,28 @@ it to the live site with a transparent proxy:
    %cd MarkMute
    !bash scripts/colab/colab_gpu_backend.sh
    ```
-   The script provisions the pinned backends, starts redis + app + worker, and
-   prints a `https://….trycloudflare.com` tunnel URL plus a local key.
-3. On Vercel, set `PIXEL_REMOTE_URL=<tunnel-url>` and
-   `PIXEL_REMOTE_KEY=<key printed in Colab>` and redeploy.
+   The script provisions the pinned backends, starts redis + app + worker,
+   warms the kernel, and **self-registers** its tunnel URL + key with the
+   public app — no manual env updates, no redeploys.
+3. On Vercel, set `PIXEL_REGISTRY_REDIS_URL` (Upstash free tier; the rewrite
+   also consumes commands from the same redis) once. Optionally set
+   `PIXEL_REGISTER_TOKEN` and pass the same token in the Colab cell.
 
 Now `/api/v1/images/*` (inspect, clean, **score**, **remove-pixel**),
 `/api/v1/tasks/*` and image downloads are forwarded to the Colab GPU, so the
-UI pills go green and pixel jobs run. Free Colab sessions last up to ~12 h —
-re-run the cell (and update the env) when it expires.
+UI pills go green and pixel jobs run. Free Colab sessions last up to ~12 h;
+the registration expires with the session (TTL), and `/api/v1/health` shows
+`pixel_remote: null` until the next session registers — the rest of the app
+never goes down.
 
-Architecture: the proxy lives in `app/routers/proxy.py` and is mounted only
-when `PIXEL_REMOTE_URL` is set; the GPU host enforces `PIXEL_REMOTE_KEY` on
-every `/api/v1` call when `PIXEL_REMOTE_ENFORCE=1` (set by the Colab script).
+Architecture: the proxy lives in `app/routers/proxy.py` and is mounted when
+`PIXEL_REMOTE_URL` or `PIXEL_REGISTRY_REDIS_URL` is set; the GPU host
+self-registers via `POST /api/v1/pixel/register` (SSRF-guarded: only loopback
+or `*.trycloudflare.com` URLs accepted), stored by `app/services/
+pixel_registry.py` with `PIXEL_REGISTRY_TTL` (12 h default) and read with a
+45 s cache. Env `PIXEL_REMOTE_URL` always wins over the registry. The GPU host
+enforces `PIXEL_REMOTE_KEY` on every `/api/v1` call when
+`PIXEL_REMOTE_ENFORCE=1` (set by the Colab script).
 
 ### GPU backend notes
 

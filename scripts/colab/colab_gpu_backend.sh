@@ -4,18 +4,22 @@
 #
 # Runs the full app+worker+redis stack natively (no Docker on Colab) with the
 # pinned upstream backends, then exposes it through a free Cloudflare Quick
-# Tunnel. Point the main app at it via:
+# Tunnel and SELF-REGISTERS with the public app — no manual env updates or
+# redeploys when the tunnel URL rotates. The public app stores the
+# registration for ~12 h (PIXEL_REGISTRY_TTL) in its Redis registry
+# (Upstash free tier); when the Colab session expires, /api/v1/health just
+# reports pixel_remote: null until the next session registers.
 #
-#     PIXEL_REMOTE_URL=<tunnel-url>   (Vercel env)
-#     PIXEL_REMOTE_KEY=<key>          (Vercel env; set PIXEL_REMOTE_ENFORCE=1 here)
+# Optional hardening: set a shared token on the public app
+# (PIXEL_REGISTER_TOKEN):
+#   !PIXEL_REGISTER_TOKEN=mysharedtoken bash scripts/colab/colab_gpu_backend.sh
 #
 # Usage in a Colab notebook (Runtime -> Change runtime type -> T4 GPU):
 #   !git clone https://github.com/aptenox-technology/MarkMute.git
 #   %cd MarkMute
 #   !bash scripts/colab/colab_gpu_backend.sh
 #
-# Sessions last up to ~12 h on the free tier; restart the cell anytime and set
-# the new tunnel URL on Vercel.
+# Sessions last up to ~12 h on the free tier — restart the cell anytime.
 # =============================================================================
 set -euo pipefail
 
@@ -74,7 +78,12 @@ sleep 1
 nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/uvicorn.log 2>&1 &
 nohup celery -A app.core.celery worker --loglevel=info -Q pixel_removal,default > /tmp/celery.log 2>&1 &
 
-# --- 7. Health -------------------------------------------------------------------
+# --- 7. Warm up (first request after a Colab kernel boot can be slow) ------------
+sleep 2
+curl -fsS -H "x-pixel-key: $PIXEL_KEY" http://127.0.0.1:8000/api/v1/health > /dev/null \
+  && echo "GPU backend warmed up" || echo "warmup ping failed (uvicorn may still be starting)"
+
+# --- 8. Health -------------------------------------------------------------------
 for i in $(seq 1 30); do
   curl -fsS -H "x-pixel-key: $PIXEL_KEY" http://127.0.0.1:8000/api/v1/health > /tmp/mmhealth.json && break
   sleep 2
@@ -92,4 +101,27 @@ if ! command -v cloudflared >/dev/null 2>&1; then
   curl -fsSL -o /usr/local/bin/cloudflared "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH"
   chmod +x /usr/local/bin/cloudflared
 fi
-cloudflared tunnel --url http://127.0.0.1:8000 2>&1 | tee /tmp/tunnel.log | sed 's|https://[a-z0-9-]*\.trycloudflare\.com|&  <-- COPY THIS URL|'
+nohup cloudflared tunnel --url http://127.0.0.1:8000 > /tmp/tunnel.log 2>&1 &
+echo "waiting for tunnel URL..."
+
+# --- 9. Grab the tunnel URL and self-register with the public app ----------------
+TUNNEL_URL=""
+for i in $(seq 1 60); do
+  TUNNEL_URL="$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/tunnel.log | head -1 || true)"
+  [ -n "$TUNNEL_URL" ] && break
+  sleep 2
+done
+[ -n "$TUNNEL_URL" ] || { echo "tunnel URL not found in /tmp/tunnel.log"; exit 1; }
+say "tunnel: $TUNNEL_URL"
+
+REGISTER_URL="${PIXEL_REGISTER_URL:-https://markmute.vercel.app}"
+TOKEN_JSON=""
+[ -n "${PIXEL_REGISTER_TOKEN:-}" ] && TOKEN_JSON=",\"token\":\"$PIXEL_REGISTER_TOKEN\""
+REG_RESULT="$(curl -fsS -X POST "$REGISTER_URL/api/v1/pixel/register" \
+  -H 'content-type: application/json' \
+  -d "{\"url\":\"$TUNNEL_URL\",\"key\":\"$PIXEL_KEY\"$TOKEN_JSON}" || echo 'REGISTER FAILED')"
+say "registration: $REG_RESULT"
+echo "Your quick Tunnel is live at: $TUNNEL_URL  (also used to register with $REGISTER_URL)"
+
+# Keep the cell alive and stream tunnel logs
+tail -f /tmp/tunnel.log
