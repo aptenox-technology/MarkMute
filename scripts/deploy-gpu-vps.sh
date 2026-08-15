@@ -55,17 +55,28 @@ fi
 
 # --- 3. Provision upstream backends at pinned commits -------------------------
 mkdir -p "$DATA_DIR"
+git config --global http.version HTTP/1.1 2>/dev/null || true
+git config --global http.postBuffer 524288000 || true
 
 provision() { # $1=dir  $2=repo  $3=ref
   local dir="$1" repo="$2" ref="$3"
-  if [ -d "$dir" ]; then
-    say "checkout exists: $dir (leaving as-is; to pin exactly run: git -C $dir fetch && git -C $dir checkout $ref)"
-  else
-    say "Cloning $repo @ $ref ..."
-    git clone --quiet "$repo" "$dir"
-    git -C "$dir" checkout --quiet "$ref"
+  if [ -d "$dir/.git" ] && git -C "$dir" cat-file -e "$ref^{commit}" 2>/dev/null; then
+    say "checkout ok at pinned ref: $dir"
+    chown -R "$UID_APP":"$UID_APP" "$dir" || true
+    return
   fi
-  chown -R "$UID_APP":"$UID_APP" "$dir" || true
+  rm -rf "$dir"
+  for attempt in 1 2 3; do
+    say "cloning $repo (attempt $attempt/3)..."
+    if git clone --quiet "$repo" "$dir" && git -C "$dir" checkout --quiet "$ref"; then
+      chown -R "$UID_APP":"$UID_APP" "$dir" || true
+      say "cloned at $ref"
+      return
+    fi
+    rm -rf "$dir"
+    sleep 5
+  done
+  fail "could not clone $repo after 3 attempts"
 }
 
 provision "$DATA_DIR/noai-watermark"  "$NOAI_REPO"   "$NOAI_REF"
