@@ -129,6 +129,11 @@ EOF
 say "local key: $PIXEL_KEY"
 
 # --- 6. Start redis + app + worker ----------------------------------------------
+# Preemptively drop leftovers from prior runs — a stuck uvicorn holding :8000
+# makes the fresh one bind-fail and shut right back down (the pattern we saw).
+pkill -9 -f "uvicorn app.main:app" 2>/dev/null || true
+pkill -9 -f "celery -A app.core.celery" 2>/dev/null || true
+sleep 1
 # Robust redis start (idempotent; safe to re-run the script).
 redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 || redis-server --daemonize yes
 sleep 1
@@ -202,8 +207,10 @@ _tunnel_ok() {
 
 watchdog() {
   # --- uvicorn: once twice-unhealthy with a live process, it's stuck: kill -9 ---
-  local code
+  local code pcount
   code="$(_http_code http://127.0.0.1:8000/api/v1/health)"
+  pcount="$(pgrep -f "uvicorn app.main:app" | wc -l | tr -d ' ')"
+  echo "$(date -u +%T) uvicorn check: code=$code pgrep=$pcount" >> /tmp/watchdog.log
   if [ "$code" != "000" ]; then
     rm -f /tmp/.uvicorn-unhealthy
   elif pgrep -f "uvicorn app.main:app" >/dev/null 2>&1; then
@@ -217,8 +224,8 @@ watchdog() {
       touch /tmp/.uvicorn-unhealthy   # first miss may just be a slow startup
     fi
   else
-    nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 >> /tmp/uvicorn.log 2>&1 &
     echo "$(date -u +%T) uvicorn restarted (missing)" >> /tmp/watchdog.log
+    nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 >> /tmp/uvicorn.log 2>&1 &
   fi
 
   # --- celery: pgrep zombies could match forever; drop them first ---
