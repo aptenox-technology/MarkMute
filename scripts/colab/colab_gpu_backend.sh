@@ -129,7 +129,8 @@ EOF
 say "local key: $PIXEL_KEY"
 
 # --- 6. Start redis + app + worker ----------------------------------------------
-redis-server --daemonize yes 2>/dev/null || service redis-server start
+# Robust redis start (idempotent; safe to re-run the script).
+redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 || redis-server --daemonize yes
 sleep 1
 nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/uvicorn.log 2>&1 &
 nohup celery -A app.core.celery worker --loglevel=info -Q pixel_removal,default > /tmp/celery.log 2>&1 &
@@ -183,7 +184,23 @@ REG_RESULT="$(curl -fsS -X POST "$REGISTER_URL/api/v1/pixel/register" \
   -H 'content-type: application/json' \
   -d "{\"url\":\"$TUNNEL_URL\",\"key\":\"$PIXEL_KEY\"$TOKEN_JSON}" || echo 'REGISTER FAILED')"
 say "registration: $REG_RESULT"
-echo "Your quick Tunnel is live at: $TUNNEL_URL  (also used to register with $REGISTER_URL)"
+echo "Your quick Tunnel is live at: $TUNNEL_URL  (registered with $REGISTER_URL)"
 
-# Keep the cell alive and stream tunnel logs
-tail -f /tmp/tunnel.log
+# --- 10. Watchdog: hold the cell and restart any service that dies ----------------
+# Individual crashes (uvicorn/celery) are healed in <15s without user action.
+watchdog() {
+  pgrep -f "uvicorn app.main:app" >/dev/null || {
+    nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 >> /tmp/uvicorn.log 2>&1 &
+    echo "$(date -u +%T) uvicorn restarted" >> /tmp/watchdog.log
+  }
+  pgrep -f "celery -A app.core.celery" >/dev/null || {
+    nohup celery -A app.core.celery worker --loglevel=info -Q pixel_removal,default >> /tmp/celery.log 2>&1 &
+    echo "$(date -u +%T) celery restarted" >> /tmp/watchdog.log
+  }
+  redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 || redis-server --daemonize yes
+}
+echo "watchdog active — services auto-restart on crash; keep this tab open."
+while true; do
+  watchdog
+  sleep 15
+done
