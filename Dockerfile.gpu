@@ -2,25 +2,41 @@
 #   - CtrlRegen pixel removal  (imported at runtime from /opt/noai-watermark)
 #   - reverse-SynthID scoring  (imported at runtime from /opt/reverse-SynthID)
 #
-# The upstream checkouts are mounted at runtime (see deploy/gpu-vps.md), so
-# this image only bakes in the pip dependencies: torch (CUDA wheels) plus the
-# pinned requirements the setup scripts install.
+# The upstream checkouts are bind-mounted at runtime (see deploy/gpu-vps.md);
+# this image bakes in the pip dependencies only. The 2026-era ML pins
+# (numpy 2.5.x, scipy 1.18, scikit-learn 1.9, opencv 5) ship no CPython 3.11
+# wheels, so a Python 3.12 runtime is layered over the base 3.11 image and
+# `python3` in the *worker* becomes 3.12 (the app service keeps the base image).
 #
 # Requires a Linux host with a NVIDIA GPU + nvidia-container-toolkit.
 # Build/run with:  docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
-FROM aptenox/markmute:latest
+FROM aptenox/markmute:latest AS base
 
+# --- Stage: full runtime (app deps + ML deps) on Python 3.12 ------------------
+FROM python:3.12-slim AS py312
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY upstream/watermarks-remover/skills/remove-ai-marks/scripts/requirements-ctrlregen.txt .
+COPY upstream/watermarks-remover/skills/remove-ai-marks/scripts/requirements-synthid-scorer.txt .
+RUN pip install --no-cache-dir torch==2.4.1 \
+        --index-url https://download.pytorch.org/whl/cu124 \
+    && pip install --no-cache-dir \
+        -r requirements-ctrlregen.txt \
+        -r requirements-synthid-scorer.txt
+
+# --- Final: GPU worker image --------------------------------------------------
+FROM base
 USER root
 
-COPY upstream/watermarks-remover/skills/remove-ai-marks/scripts/requirements-ctrlregen.txt /tmp/requirements-ctrlregen.txt
-COPY upstream/watermarks-remover/skills/remove-ai-marks/scripts/requirements-synthid-scorer.txt /tmp/requirements-synthid-scorer.txt
+COPY --from=py312 /usr/local/bin/python3.12 /usr/local/bin/python3.12
+COPY --from=py312 /usr/local/lib/libpython3.12* /usr/local/lib/
+COPY --from=py312 /usr/local/lib/python3.12 /usr/local/lib/python3.12
+COPY --from=py312 /usr/local/bin/celery /usr/local/bin/celery
 
-RUN pip install --no-cache-dir --upgrade "pip==26.2.1" \
-    && pip install --no-cache-dir \
-        -r /tmp/requirements-ctrlregen.txt \
-        -r /tmp/requirements-synthid-scorer.txt \
-    && pip install --no-cache-dir torch==2.4.1 \
-        --index-url https://download.pytorch.org/whl/cu124 \
-    && rm -f /tmp/requirements-ctrlregen.txt /tmp/requirements-synthid-scorer.txt
+RUN ln -sf python3.12 /usr/local/bin/python3 \
+    && ldconfig \
+    && python3 --version \
+    && python3 -c "import sys, numpy, scipy, cv2, torch, celery; print('deps ok', sys.version.split()[0])"
 
 USER appuser

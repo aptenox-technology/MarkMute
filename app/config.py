@@ -53,6 +53,15 @@ class Settings(BaseSettings):
     WATERMARKS_REWRITE_MODEL: str | None = None
     WATERMARKS_REWRITE_BASE_URL: str | None = None
 
+    # Optional: remote GPU backend proxy (free tier). When PIXEL_REMOTE_URL is
+    # set, /api/v1/images/*, /api/v1/tasks/* and /api/v1/files/download/* are
+    # transparently forwarded to that host (e.g. a Colab T4 behind a tunnel),
+    # with requests signed using PIXEL_REMOTE_KEY. On the GPU host itself, set
+    # PIXEL_REMOTE_ENFORCE=1 to require that key on every /api/v1 call.
+    PIXEL_REMOTE_URL: str = ""
+    PIXEL_REMOTE_KEY: str = ""
+    PIXEL_REMOTE_ENFORCE: bool = False
+
     # Security
     CORS_ORIGINS: str = "http://localhost:8000"
 

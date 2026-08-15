@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import BASE_DIR, settings
 from app.routers import files, images, tasks, text
+from app.routers.proxy import pixel_key_guard, router as proxy_router
 
 API_PREFIX = "/api/v1"
 
@@ -45,10 +46,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Remote GPU backend (free tier): when configured, image/task/download routes
+# are proxied to the GPU host — register it BEFORE the local routers so it wins.
+if settings.PIXEL_REMOTE_URL:
+    app.include_router(proxy_router)
+
 app.include_router(text.router)
 app.include_router(files.router)
 app.include_router(images.router)
 app.include_router(tasks.router)
+
+# API-key guard for the GPU host (no-op unless PIXEL_REMOTE_KEY is set).
+app.middleware("http")(pixel_key_guard)
 
 
 @app.get("/", include_in_schema=False)
@@ -94,6 +103,7 @@ def health():
         "app": settings.APP_NAME,
         "synthid_available": synthid,
         "ctrlregen_available": pixel_service.is_available(),
+        "pixel_remote": settings.PIXEL_REMOTE_URL or None,
     }
 
 

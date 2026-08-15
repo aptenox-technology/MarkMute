@@ -188,6 +188,34 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 Behind a reverse proxy (Caddy/nginx) point at `127.0.0.1:8000`. Make sure
 `CORS_ORIGINS` includes your domain.
 
+### Free tier: end-to-end on Vercel + a Colab T4
+
+The public site (Vercel) serves text/files/metadata for free. Pixel removal
+and SynthID scoring need a GPU — get one **free** from Google Colab and attach
+it to the live site with a transparent proxy:
+
+1. Open <https://colab.research.google.com> → **Runtime → Change runtime
+   type → T4 GPU**.
+2. In a cell:
+   ```bash
+   !git clone https://github.com/aptenox-technology/MarkMute.git
+   %cd MarkMute
+   !bash scripts/colab/colab_gpu_backend.sh
+   ```
+   The script provisions the pinned backends, starts redis + app + worker, and
+   prints a `https://….trycloudflare.com` tunnel URL plus a local key.
+3. On Vercel, set `PIXEL_REMOTE_URL=<tunnel-url>` and
+   `PIXEL_REMOTE_KEY=<key printed in Colab>` and redeploy.
+
+Now `/api/v1/images/*` (inspect, clean, **score**, **remove-pixel**),
+`/api/v1/tasks/*` and image downloads are forwarded to the Colab GPU, so the
+UI pills go green and pixel jobs run. Free Colab sessions last up to ~12 h —
+re-run the cell (and update the env) when it expires.
+
+Architecture: the proxy lives in `app/routers/proxy.py` and is mounted only
+when `PIXEL_REMOTE_URL` is set; the GPU host enforces `PIXEL_REMOTE_KEY` on
+every `/api/v1` call when `PIXEL_REMOTE_ENFORCE=1` (set by the Colab script).
+
 ### GPU backend notes
 
 - The GPU image (`Dockerfile.gpu` → `aptenox/markmute-gpu`) bakes in the pip
