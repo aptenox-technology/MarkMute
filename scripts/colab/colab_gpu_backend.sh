@@ -68,7 +68,7 @@ git config --global http.postBuffer 524288000 || true
 
 provision() { # $1=dir $2=repo $3=ref
   local dir="$1" repo="$2" ref="$3"
-  if [ -d "$dir/.git" ] && git -C "$dir" cat-file -e "$ref^{commit}" 2>/dev/null; then
+  if { [ -f "$dir/.mm-pinned" ] || git -C "$dir" cat-file -e "$ref^{commit}" 2>/dev/null; } && [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
     say "checkout ok at pinned ref: $dir"
     return
   fi
@@ -83,16 +83,31 @@ provision() { # $1=dir $2=repo $3=ref
     sleep 5
   done
   say "full clone kept failing — falling back to a shallow fetch of the exact pinned commit..."
-  # Single-commit fetch: GitHub permits fetching a reachable SHA; the transfer
-  # is only a few MB, so it survives flaky connections.
   git init --quiet "$dir"
   git -C "$dir" remote add origin "$repo"
   if git -C "$dir" fetch --quiet --depth 1 --no-tags origin "$ref" \
-      && git -C "$dir" checkout --quiet FETCH_HEAD \
-      && git -C "$dir" cat-file -e "$ref^{commit}" >/dev/null 2>&1; then
+      && git -C "$dir" checkout --quiet FETCH_HEAD; then
     say "shallow checkout at $ref"
     return
   fi
+  rm -rf "$dir"
+  say "git protocol blocked — falling back to a tarball download of the exact pinned commit..."
+  # codeload.github.com uses a different edge than the git protocol, so tarball
+  # downloads usually survive the flaky Colab→GitHub connections.
+  local owner repo_name
+  owner="${repo#https://github.com/}"; owner="${owner%%/*}"
+  repo_name="${repo#https://github.com/}"; repo_name="${repo_name#*/}"; repo_name="${repo_name%%.git}"
+  mkdir -p "$dir"
+  tmp_tar="$(mktemp)"
+  if [ ! -f "$dir/.mm-pinned" ] && curl -fsSL --connect-timeout 20 --retry 5 \
+        -o "$tmp_tar" "https://codeload.github.com/$owner/$repo_name/tar.gz/$ref" \
+      && tar -xzf "$tmp_tar" -C "$dir" --strip-components=1; then
+    touch "$dir/.mm-pinned"
+    rm -f "$tmp_tar"
+    say "tarball checkout at $ref"
+    return
+  fi
+  rm -f "$tmp_tar"
   rm -rf "$dir"
   echo "failed to provision $repo at $ref — check connectivity and re-run" >&2
   exit 1
