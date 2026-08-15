@@ -188,23 +188,57 @@ echo "Your quick Tunnel is live at: $TUNNEL_URL  (registered with $REGISTER_URL)
 
 # --- 10. Watchdog: hold the cell and restart any service that dies ----------------
 # Individual crashes (uvicorn/celery/redis/tunnel) are healed in <25s yourself-free.
+# Liveness = the service actually answers, not just "a process with that command
+# exists" — stuck/dying processes (zombies, half-shutdown) fool pgrep and made
+# uvicorn/celery stay dead while the watchdog "saw" them alive.
+_http_code() { curl -s -o /dev/null -m 3 -w '%{http_code}' "$1"; }
+
 watchdog() {
-  pgrep -f "uvicorn app.main:app" >/dev/null || {
+  # --- uvicorn: once twice-unhealthy with a live process, it's stuck: kill -9 ---
+  local code
+  code="$(_http_code http://127.0.0.1:8000/api/v1/health)"
+  if [ "$code" != "000" ]; then
+    rm -f /tmp/.uvicorn-unhealthy
+  elif pgrep -f "uvicorn app.main:app" >/dev/null 2>&1; then
+    if [ -f /tmp/.uvicorn-unhealthy ]; then
+      echo "$(date -u +%T) uvicorn stuck (no listener) — killing and restarting" >> /tmp/watchdog.log
+      pkill -9 -f "uvicorn app.main:app" 2>/dev/null || true
+      sleep 1
+      nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 >> /tmp/uvicorn.log 2>&1 &
+      rm -f /tmp/.uvicorn-unhealthy
+    else
+      touch /tmp/.uvicorn-unhealthy   # first miss may just be a slow startup
+    fi
+  else
     nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 >> /tmp/uvicorn.log 2>&1 &
-    echo "$(date -u +%T) uvicorn restarted" >> /tmp/watchdog.log
-  }
-  pgrep -f "celery -A app.core.celery" >/dev/null || {
+    echo "$(date -u +%T) uvicorn restarted (missing)" >> /tmp/watchdog.log
+  fi
+
+  # --- celery: pgrep zombies could match forever; drop them first ---
+  local cpid
+  cpid="$(pgrep -f "celery -A app.core.celery" | head -1 || true)"
+  if [ -n "$cpid" ] && [ "$(ps -o stat= -p "$cpid" 2>/dev/null | tr -d ' ')" = "Z" ]; then
+    kill -9 "$cpid" 2>/dev/null || true
+    cpid=""
+  fi
+  if [ -z "$cpid" ]; then
     nohup celery -A app.core.celery worker --loglevel=info -Q pixel_removal,default >> /tmp/celery.log 2>&1 &
-    echo "$(date -u +%T) celery restarted" >> /tmp/watchdog.log
+    echo "$(date -u +%T) celery restarted (missing/zombie)" >> /tmp/watchdog.log
+  fi
+
+  # --- redis ---
+  redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 || {
+    pkill -9 -f redis-server 2>/dev/null || true
+    sleep 1
+    redis-server --daemonize yes
   }
-  redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 || redis-server --daemonize yes
 
   # Tunnel dies independent of the app (cloudflared quits, edge flakes) — the
   # registered URL goes stale and the public app gets 530. Detect it and bring
   # up a fresh tunnel, then re-register so the app still routes to us.
   TUNNEL_URL="$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/tunnel.log | head -1 || true)"
-  if [ -n "$TUNNEL_URL" ] && curl -fsS -m 5 -H "x-pixel-key: $PIXEL_KEY" "$TUNNEL_URL/api/v1/health" >/dev/null 2>&1; then
-    : # tunnel healthy
+  if [ -n "$TUNNEL_URL" ] && [ "$(_http_code "$TUNNEL_URL/api/v1/health")" != "000" ]; then
+    : # tunnel healthy (403/200 both fine — the guard answers with 403 on bad keys)
   else
     echo "$(date -u +%T) tunnel unhealthy ($TUNNEL_URL) — relaunching..." >> /tmp/watchdog.log
     pkill -f cloudflared 2>/dev/null || true
@@ -216,7 +250,7 @@ watchdog() {
       [ -n "$NEW_URL" ] && break
       sleep 2
     done
-    if [ -n "$NEW_URL" ] && curl -fsS -m 5 -H "x-pixel-key: $PIXEL_KEY" "$NEW_URL/api/v1/health" >/dev/null 2>&1; then
+    if [ -n "$NEW_URL" ] && [ "$(_http_code "$NEW_URL/api/v1/health")" != "000" ]; then
       REGISTER_URL="${PIXEL_REGISTER_URL:-https://markmute.vercel.app}"
       TOKEN_JSON=""
       [ -n "${PIXEL_REGISTER_TOKEN:-}" ] && TOKEN_JSON=",\"token\":\"$PIXEL_REGISTER_TOKEN\""
