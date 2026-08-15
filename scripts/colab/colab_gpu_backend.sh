@@ -59,14 +59,34 @@ $PIP install -q -r requirements.txt \
 
 # --- 4. Provision upstream backends at pinned commits ---------------------------
 mkdir -p data downloads
-[ -d data/noai-watermark ] || {
-  git clone --quiet "$NOAI_REPO" data/noai-watermark
-  git -C data/noai-watermark checkout --quiet "$NOAI_REF"
+# GitHub clones over HTTP/2 can drop mid-stream on Colab — fall back to
+# HTTP/1.1 and retry until a checkpoint passes.
+if ! git config --global http.version >/dev/null 2>&1; then
+  git config --global http.version HTTP/1.1
+fi
+git config --global http.postBuffer 524288000 || true
+
+provision() { # $1=dir $2=repo $3=ref
+  local dir="$1" repo="$2" ref="$3"
+  if [ -d "$dir/.git" ] && git -C "$dir" cat-file -e "$ref^{commit}" 2>/dev/null; then
+    say "checkout ok at pinned ref: $dir"
+    return
+  fi
+  rm -rf "$dir"
+  for attempt in 1 2 3; do
+    say "cloning $repo (attempt $attempt/3)..."
+    if git clone --quiet "$repo" "$dir" && git -C "$dir" checkout --quiet "$ref"; then
+      say "cloned at $ref"
+      return
+    fi
+    rm -rf "$dir"
+    sleep 5
+  done
+  echo "failed to clone $repo after 3 attempts — re-run the script to retry" >&2
+  exit 1
 }
-[ -d data/reverse-SynthID ] || {
-  git clone --quiet "$SYNTHID_REPO" data/reverse-SynthID
-  git -C data/reverse-SynthID checkout --quiet "$SYNTHID_REF"
-}
+provision "data/noai-watermark"  "$NOAI_REPO"   "$NOAI_REF"
+provision "data/reverse-SynthID" "$SYNTHID_REPO" "$SYNTHID_REF"
 
 # --- 5. Env ---------------------------------------------------------------------
 PIXEL_KEY="$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 24)"
