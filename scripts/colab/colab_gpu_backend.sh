@@ -82,7 +82,19 @@ provision() { # $1=dir $2=repo $3=ref
     rm -rf "$dir"
     sleep 5
   done
-  echo "failed to clone $repo after 3 attempts — re-run the script to retry" >&2
+  say "full clone kept failing — falling back to a shallow fetch of the exact pinned commit..."
+  # Single-commit fetch: GitHub permits fetching a reachable SHA; the transfer
+  # is only a few MB, so it survives flaky connections.
+  git init --quiet "$dir"
+  git -C "$dir" remote add origin "$repo"
+  if git -C "$dir" fetch --quiet --depth 1 --no-tags origin "$ref" \
+      && git -C "$dir" checkout --quiet FETCH_HEAD \
+      && git -C "$dir" cat-file -e "$ref^{commit}" >/dev/null 2>&1; then
+    say "shallow checkout at $ref"
+    return
+  fi
+  rm -rf "$dir"
+  echo "failed to provision $repo at $ref — check connectivity and re-run" >&2
   exit 1
 }
 provision "data/noai-watermark"  "$NOAI_REPO"   "$NOAI_REF"

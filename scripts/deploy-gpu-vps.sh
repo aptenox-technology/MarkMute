@@ -76,7 +76,18 @@ provision() { # $1=dir  $2=repo  $3=ref
     rm -rf "$dir"
     sleep 5
   done
-  fail "could not clone $repo after 3 attempts"
+  say "full clone kept failing — falling back to a shallow fetch of the exact pinned commit..."
+  git init --quiet "$dir"
+  git -C "$dir" remote add origin "$repo"
+  if git -C "$dir" fetch --quiet --depth 1 --no-tags origin "$ref" \
+      && git -C "$dir" checkout --quiet FETCH_HEAD \
+      && git -C "$dir" cat-file -e "$ref^{commit}" >/dev/null 2>&1; then
+    chown -R "$UID_APP":"$UID_APP" "$dir" || true
+    say "shallow checkout at $ref"
+    return
+  fi
+  rm -rf "$dir"
+  fail "could not provision $repo at $ref"
 }
 
 provision "$DATA_DIR/noai-watermark"  "$NOAI_REPO"   "$NOAI_REF"
