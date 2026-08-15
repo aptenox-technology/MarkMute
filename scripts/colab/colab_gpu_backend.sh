@@ -62,8 +62,19 @@ if [ -z "$PY_BIN" ]; then
     uv venv .venv --python 3.12 -q
     PY_BIN="$PWD/.venv/bin/python"
   fi
+else
+  # python3.12 is on PATH natively (Colab, etc.) — pip expected, no uv needed
+  :
 fi
-if command -v uv >/dev/null 2>&1 && [ -d .venv ]; then
+# A .venv built by modern uv has NO pip — uv pip handles installs in that case;
+# make sure uv exists whenever .venv is in play (a fresh shell PATH may lack it).
+if [ -d .venv ] && ! command -v uv >/dev/null 2>&1; then
+  say "installing uv (needed to install packages into the pip-less .venv)..."
+  curl -LsSf https://astral.sh/uv/install.sh | INSTALLER_NO_MODIFY_PATH=1 sh >/dev/null 2>&1 \
+    || { echo "uv install failed" >&2; exit 1; }
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+if [ -d .venv ]; then
   # uv venv does not seed pip anymore — use uv's own installer for the venv.
   PIP() { uv pip install --python .venv/bin/python -q "$@"; }
 else
