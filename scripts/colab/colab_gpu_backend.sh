@@ -63,7 +63,12 @@ if [ -z "$PY_BIN" ]; then
     PY_BIN="$PWD/.venv/bin/python"
   fi
 fi
-PIP() { "$PY_BIN" -m pip install -q "$@"; }
+if command -v uv >/dev/null 2>&1 && [ -d .venv ]; then
+  # uv venv does not seed pip anymore — use uv's own installer for the venv.
+  PIP() { uv pip install --python .venv/bin/python -q "$@"; }
+else
+  PIP() { "$PY_BIN" -m pip install -q "$@"; }
+fi
 say "using python: $PY_BIN ($("$PY_BIN" -c 'import sys; print(sys.version.split()[0])'))"
 
 # --- 2b. Upstream toolkit submodule (missing after a plain `git clone`) ----------
