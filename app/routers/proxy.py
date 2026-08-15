@@ -172,19 +172,19 @@ async def _forward_image_op(request: Request, op: str, file_id: str) -> Streamin
     base = backend["url"].rstrip("/")
     auth = {"x-pixel-key": backend["key"]}
 
-    raw_dir = Path(settings.UPLOAD_DIR) / "raw"
-    matches = list(raw_dir.glob(f"{file_id}.*"))
-    if not matches:
-        return JSONResponse(status_code=404, content={"detail": "File not found"})
-    file_path = matches[0]
-
-    from mimetypes import guess_type
-
-    with open(file_path, "rb") as fh:
-        data = fh.read()
-    mime = guess_type(file_path.name)[0] or "application/octet-stream"
-
     try:
+        raw_dir = Path(settings.UPLOAD_DIR) / "raw"
+        matches = list(raw_dir.glob(f"{file_id}.*"))
+        if not matches:
+            return JSONResponse(status_code=404, content={"detail": "File not found"})
+        file_path = matches[0]
+
+        from mimetypes import guess_type
+
+        with open(file_path, "rb") as fh:
+            data = fh.read()
+        mime = guess_type(file_path.name)[0] or "application/octet-stream"
+
         client = _client()
         upload_resp = await asyncio.wait_for(
             client.post(
@@ -194,52 +194,46 @@ async def _forward_image_op(request: Request, op: str, file_id: str) -> Streamin
             ),
             timeout=60,
         )
-    except Exception as e:  # noqa: BLE001 — surface tunnel/network failures
-        return JSONResponse(
-            status_code=502,
-            content={"detail": f"GPU backend unreachable: {type(e).__name__}: {e}"},
-        )
-    if upload_resp.status_code >= 400:
-        body = upload_resp.text[:300]
-        return JSONResponse(
-            status_code=502,
-            content={"detail": f"GPU backend upload failed ({upload_resp.status_code}): {body}"},
-        )
-    new_id = upload_resp.json().get("file_id")
+        if upload_resp.status_code >= 400:
+            body = upload_resp.text[:300]
+            return JSONResponse(
+                status_code=502,
+                content={"detail": f"GPU backend upload failed ({upload_resp.status_code}): {body}"},
+            )
+        new_id = (upload_resp.json() or {}).get("file_id")
 
-    target = f"{base}/api/v1/images/{op}/{new_id}"
-    if request.url.query:
-        target += f"?{request.url.query}"
+        target = f"{base}/api/v1/images/{op}/{new_id}"
+        if request.url.query:
+            target += f"?{request.url.query}"
 
-    try:
         resp = await client.send(
             client.build_request(request.method, target, headers=auth), stream=True
         )
-    except Exception as e:  # noqa: BLE001
+        if resp.status_code >= 400:
+            try:
+                raw = (await resp.aread()).decode("utf-8", "replace")[:500]
+            finally:
+                await resp.aclose()
+            return JSONResponse(status_code=resp.status_code, content={"detail": raw})
+
+        resp_headers = {}
+        for name in ("content-type", "content-disposition"):
+            if resp.headers.get(name):
+                resp_headers[name] = resp.headers[name]
+
+        async def _stream():
+            try:
+                async for chunk in resp.aiter_bytes():
+                    yield chunk
+            finally:
+                await resp.aclose()
+
+        return StreamingResponse(_stream(), status_code=resp.status_code, headers=resp_headers)
+    except Exception as e:  # noqa: BLE001 — never leak a bare 500; surface the cause
         return JSONResponse(
             status_code=502,
-            content={"detail": f"GPU backend unreachable: {type(e).__name__}: {e}"},
+            content={"detail": f"GPU backend error: {type(e).__name__}: {e}"},
         )
-    if resp.status_code >= 400:
-        try:
-            raw = (await resp.aread()).decode("utf-8", "replace")[:500]
-        finally:
-            await resp.aclose()
-        return JSONResponse(status_code=resp.status_code, content={"detail": raw})
-
-    resp_headers = {}
-    for name in ("content-type", "content-disposition"):
-        if resp.headers.get(name):
-            resp_headers[name] = resp.headers[name]
-
-    async def _stream():
-        try:
-            async for chunk in resp.aiter_bytes():
-                yield chunk
-        finally:
-            await resp.aclose()
-
-    return StreamingResponse(_stream(), status_code=resp.status_code, headers=resp_headers)
 
 
 async def pixel_key_guard(request: Request, call_next):
