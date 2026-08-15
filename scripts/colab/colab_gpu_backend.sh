@@ -116,7 +116,7 @@ provision "data/noai-watermark"  "$NOAI_REPO"   "$NOAI_REF"
 provision "data/reverse-SynthID" "$SYNTHID_REPO" "$SYNTHID_REF"
 
 # --- 5. Env ---------------------------------------------------------------------
-PIXEL_KEY="$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 24)"
+PIXEL_KEY="$(openssl rand -hex 12 2>/dev/null || python3 -c 'import secrets; print(secrets.token_hex(12))')"
 cat > .env <<EOF
 REDIS_URL=redis://127.0.0.1:6379/0
 UPLOAD_DIR=$PWD/uploads
