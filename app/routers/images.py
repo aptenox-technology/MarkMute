@@ -119,9 +119,15 @@ def start_pixel_removal(file_id: str, strength: float = 0.7, steps: int = 20):
     cleaned_dir.mkdir(parents=True, exist_ok=True)
     output_path = cleaned_dir / f"{file_id}_ctrlregen{file_path.suffix}"
 
-    task = remove_pixel_watermark.delay(
-        str(file_path),
-        str(output_path),
-        {"strength": strength, "steps": steps},
-    )
+    try:
+        task = remove_pixel_watermark.delay(
+            str(file_path),
+            str(output_path),
+            {"strength": strength, "steps": steps},
+        )
+    except Exception as e:  # noqa: BLE001 — broker (redis) down: tell the caller why
+        raise HTTPException(
+            status_code=503,
+            detail=f"Job broker unavailable: {type(e).__name__}: {e}",
+        )
     return {"task_id": task.id, "download_url": f"/api/v1/files/download/{file_id}_ctrlregen{file_path.suffix}"}
