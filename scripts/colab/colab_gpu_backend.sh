@@ -187,7 +187,7 @@ say "registration: $REG_RESULT"
 echo "Your quick Tunnel is live at: $TUNNEL_URL  (registered with $REGISTER_URL)"
 
 # --- 10. Watchdog: hold the cell and restart any service that dies ----------------
-# Individual crashes (uvicorn/celery) are healed in <15s without user action.
+# Individual crashes (uvicorn/celery/redis/tunnel) are healed in <25s yourself-free.
 watchdog() {
   pgrep -f "uvicorn app.main:app" >/dev/null || {
     nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 >> /tmp/uvicorn.log 2>&1 &
@@ -198,8 +198,41 @@ watchdog() {
     echo "$(date -u +%T) celery restarted" >> /tmp/watchdog.log
   }
   redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 || redis-server --daemonize yes
+
+  # Tunnel dies independent of the app (cloudflared quits, edge flakes) — the
+  # registered URL goes stale and the public app gets 530. Detect it and bring
+  # up a fresh tunnel, then re-register so the app still routes to us.
+  TUNNEL_URL="$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/tunnel.log | head -1 || true)"
+  if [ -n "$TUNNEL_URL" ] && curl -fsS -m 5 -H "x-pixel-key: $PIXEL_KEY" "$TUNNEL_URL/api/v1/health" >/dev/null 2>&1; then
+    : # tunnel healthy
+  else
+    echo "$(date -u +%T) tunnel unhealthy ($TUNNEL_URL) — relaunching..." >> /tmp/watchdog.log
+    pkill -f cloudflared 2>/dev/null || true
+    sleep 2
+    nohup cloudflared tunnel --url http://127.0.0.1:8000 > /tmp/tunnel.log 2>&1 &
+    NEW_URL=""
+    for i in $(seq 1 60); do
+      NEW_URL="$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/tunnel.log | head -1 || true)"
+      [ -n "$NEW_URL" ] && break
+      sleep 2
+    done
+    if [ -n "$NEW_URL" ] && curl -fsS -m 5 -H "x-pixel-key: $PIXEL_KEY" "$NEW_URL/api/v1/health" >/dev/null 2>&1; then
+      REGISTER_URL="${PIXEL_REGISTER_URL:-https://markmute.vercel.app}"
+      TOKEN_JSON=""
+      [ -n "${PIXEL_REGISTER_TOKEN:-}" ] && TOKEN_JSON=",\"token\":\"$PIXEL_REGISTER_TOKEN\""
+      if curl -fsS -m 10 -X POST "$REGISTER_URL/api/v1/pixel/register" \
+          -H 'content-type: application/json' \
+          -d "{\"url\":\"$NEW_URL\",\"key\":\"$PIXEL_KEY\"$TOKEN_JSON}" >/dev/null 2>&1; then
+        echo "$(date -u +%T) re-registered: $NEW_URL" >> /tmp/watchdog.log
+      else
+        echo "$(date -u +%T) re-registration failed" >> /tmp/watchdog.log
+      fi
+    else
+      echo "$(date -u +%T) new tunnel unhealthy — retrying next cycle" >> /tmp/watchdog.log
+    fi
+  fi
 }
-echo "watchdog active — services auto-restart on crash; keep this tab open."
+echo "watchdog active — services auto-restart (app, worker, redis, tunnel) on crash; keep this tab open."
 while true; do
   watchdog
   sleep 15
