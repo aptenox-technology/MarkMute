@@ -1,0 +1,26 @@
+# GPU variant of aptenox/markmute: adds the optional ML backends
+#   - CtrlRegen pixel removal  (imported at runtime from /opt/noai-watermark)
+#   - reverse-SynthID scoring  (imported at runtime from /opt/reverse-SynthID)
+#
+# The upstream checkouts are mounted at runtime (see deploy/gpu-vps.md), so
+# this image only bakes in the pip dependencies: torch (CUDA wheels) plus the
+# pinned requirements the setup scripts install.
+#
+# Requires a Linux host with a NVIDIA GPU + nvidia-container-toolkit.
+# Build/run with:  docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+FROM aptenox/markmute:latest
+
+USER root
+
+COPY upstream/watermarks-remover/skills/remove-ai-marks/scripts/requirements-ctrlregen.txt /tmp/requirements-ctrlregen.txt
+COPY upstream/watermarks-remover/skills/remove-ai-marks/scripts/requirements-synthid-scorer.txt /tmp/requirements-synthid-scorer.txt
+
+RUN pip install --no-cache-dir --upgrade "pip==26.2.1" \
+    && pip install --no-cache-dir \
+        -r /tmp/requirements-ctrlregen.txt \
+        -r /tmp/requirements-synthid-scorer.txt \
+    && pip install --no-cache-dir torch==2.4.1 \
+        --index-url https://download.pytorch.org/whl/cu124 \
+    && rm -f /tmp/requirements-ctrlregen.txt /tmp/requirements-synthid-scorer.txt
+
+USER appuser

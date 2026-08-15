@@ -1,10 +1,17 @@
 # GPU override for GPU-enabled hosts (Linux + nvidia-container-toolkit).
 #
-# Usage: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# Usage (see deploy/gpu-vps.md):
+#   ./scripts/deploy-gpu-vps.sh  OR
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 # On a plain laptop (no GPU), omit this file — the base compose runs fine.
+#
+# Overrides the worker to the GPU image, grants it the host GPU, and replaces
+# the checkouts named volumes with bind mounts under ./data so the upstream
+# repos (pinned commits) are provisioned by the deploy script.
 
 services:
   worker:
+    image: aptenox/markmute-gpu:latest
     deploy:
       resources:
         reservations:
@@ -12,3 +19,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    volumes:
+      - uploads:/app/uploads
+      - ./data/noai-watermark:/opt/noai-watermark
+      - ./data/reverse-SynthID:/opt/reverse-SynthID

@@ -174,13 +174,35 @@ Celery worker are unavailable — the health pills report this honestly.
 # GPU-less host (everything except pixel removal):
 docker compose up -d --build
 
-# GPU host (Linux + nvidia-container-toolkit): add CtrlRegen/SynthID checkouts
-# into the volumes first, then:
+# GPU host (Linux + nvidia-container-toolkit): full backend incl. CtrlRegen
+# pixel removal + SynthID scoring. One command provisions the upstream
+# checkouts at their pinned commits, builds the GPU image and brings up the
+# stack (run as root):
+sudo bash scripts/deploy-gpu-vps.sh
+
+# ...or manually:
+mkdir -p data && git clone --quiet https://github.com/.../noai-watermark data/noai-watermark
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 ```
 
 Behind a reverse proxy (Caddy/nginx) point at `127.0.0.1:8000`. Make sure
 `CORS_ORIGINS` includes your domain.
+
+### GPU backend notes
+
+- The GPU image (`Dockerfile.gpu` → `aptenox/markmute-gpu`) bakes in the pip
+  deps only (torch==2.4.1 CUDA 12.4 wheels typed at build time; the pinned
+  `requirements-ctrlregen.txt` / `requirements-synthid-scorer.txt`). The
+  upstream repos themselves are **not** bundled — they are cloned at pinned,
+  immutable SHA-1 commits into `data/` and bind-mounted to
+  `/opt/noai-watermark` and `/opt/reverse-SynthID`, where the scripts import
+  them (`sys.path` at runtime). Pinning SHA-1s (rather than branch names)
+  makes every provision reproducible.
+- The worker runs the pixel jobs (`--ctrlregen-device cuda`, 20 steps,
+  strength 0.7); the app image doesn't need the GPU.
+- Validate the stack at `/api/v1/health` — both `ctrlregen_available` and
+  `synthid_available` must read `true`; only then do the UI pills show
+  sparse-block removal and SynthID scoring as available.
 
 ### Notes
 

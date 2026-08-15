@@ -71,6 +71,11 @@ def privacy():
     return FileResponse(PAGES_DIR / "privacy.html")
 
 
+@app.get("/terms", include_in_schema=False)
+def terms():
+    return FileResponse(PAGES_DIR / "terms.html")
+
+
 @app.get("/app", include_in_schema=False)
 def tool():
     return FileResponse(TOOL_PAGE)

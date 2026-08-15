@@ -7,6 +7,7 @@ EXPECTED_PAGES = {
     "/features": ("Features", "canonical"),
     "/about": ("About MarkMute", "canonical"),
     "/privacy": ("Privacy Policy", "canonical"),
+    "/terms": ("Terms of Use", "canonical"),
 }
 
 
@@ -48,7 +49,7 @@ def test_sitemap_xml(client):
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("application/xml")
     body = res.text
-    for loc in ("/", "/app", "/features", "/about", "/privacy"):
+    for loc in ("/", "/app", "/features", "/about", "/privacy", "/terms"):
         assert f"https://markmute.vercel.app{loc}" in body, f"sitemap missing {loc}"
 
 
