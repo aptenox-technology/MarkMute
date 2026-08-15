@@ -42,8 +42,29 @@ nvidia-smi >/dev/null 2>&1 || {
 
 # --- 2. System deps -------------------------------------------------------------
 apt-get update -qq >/dev/null
-apt-get install -y -qq redis-server exiftool libmagic1 >/dev/null
-PIP="$(command -v pip3 || command -v pip)"
+apt-get install -y -qq redis-server exiftool libmagic1 curl >/dev/null
+
+# --- 2a. Python: the pinned research deps (transformers 4.37.2, safetensors
+# 0.4.3, numpy 2.5/opencv 5) only have wheels through Python 3.12. Modern hosts
+# ship 3.13/3.14, so provision a 3.12 runtime: use a system python3.12 when
+# present (Colab), otherwise bootstrap an isolated .venv via uv. ---
+PY_BIN="$(command -v python3.12 || true)"
+if [ -z "$PY_BIN" ]; then
+  if [ -x .venv/bin/python ]; then
+    PY_BIN="$PWD/.venv/bin/python"
+  else
+    say "no python3.12 on PATH — bootstrapping an isolated 3.12 venv via uv"
+    if ! command -v uv >/dev/null 2>&1; then
+      curl -LsSf https://astral.sh/uv/install.sh | INSTALLER_NO_MODIFY_PATH=1 sh >/dev/null 2>&1 \
+        || { echo "uv install failed — install python3.12 manually and re-run" >&2; exit 1; }
+      export PATH="$HOME/.local/bin:$PATH"
+    fi
+    uv venv .venv --python 3.12 -q
+    PY_BIN="$PWD/.venv/bin/python"
+  fi
+fi
+PIP() { "$PY_BIN" -m pip install -q "$@"; }
+say "using python: $PY_BIN ($("$PY_BIN" -c 'import sys; print(sys.version.split()[0])'))"
 
 # --- 2b. Upstream toolkit submodule (missing after a plain `git clone`) ----------
 REQ_DIR="upstream/watermarks-remover/skills/remove-ai-marks/scripts"
@@ -53,9 +74,13 @@ if [ ! -f "$REQ_DIR/requirements-ctrlregen.txt" ]; then
 fi
 
 # --- 3. Python deps (Colab already ships CUDA torch — keep it) ------------------
-$PIP install -q -r requirements.txt \
+PIP install -r requirements.txt \
     -r upstream/watermarks-remover/skills/remove-ai-marks/scripts/requirements-ctrlregen.txt \
     -r upstream/watermarks-remover/skills/remove-ai-marks/scripts/requirements-synthid-scorer.txt
+# torch is never pinned in the requirements (kept out to avoid CUDA wheels on
+# Colab); install it from the CPU index so CPU-only boxes work too.
+"$PY_BIN" -c 'import torch' >/dev/null 2>&1 || \
+  PIP --index-url https://download.pytorch.org/whl/cpu "torch==2.4.1" "torchvision==0.19.1"
 
 # --- 4. Provision upstream backends at pinned commits ---------------------------
 mkdir -p data downloads
@@ -116,7 +141,7 @@ provision "data/noai-watermark"  "$NOAI_REPO"   "$NOAI_REF"
 provision "data/reverse-SynthID" "$SYNTHID_REPO" "$SYNTHID_REF"
 
 # --- 5. Env ---------------------------------------------------------------------
-PIXEL_KEY="$(openssl rand -hex 12 2>/dev/null || python3 -c 'import secrets; print(secrets.token_hex(12))')"
+PIXEL_KEY="$(openssl rand -hex 12 2>/dev/null || "$PY_BIN" -c 'import secrets; print(secrets.token_hex(12))')"
 cat > .env <<EOF
 REDIS_URL=redis://127.0.0.1:6379/0
 UPLOAD_DIR=$PWD/uploads
@@ -137,8 +162,8 @@ sleep 1
 # Robust redis start (idempotent; safe to re-run the script).
 redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 || redis-server --daemonize yes
 sleep 1
-nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/uvicorn.log 2>&1 &
-nohup celery -A app.core.celery worker --loglevel=info -Q pixel_removal,default > /tmp/celery.log 2>&1 &
+nohup "$PY_BIN" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/uvicorn.log 2>&1 &
+nohup "$PY_BIN" -m celery -A app.core.celery worker --loglevel=info -Q pixel_removal,default > /tmp/celery.log 2>&1 &
 
 # --- 7. Warm up (first request after a Colab kernel boot can be slow) ------------
 sleep 2
@@ -150,7 +175,7 @@ for i in $(seq 1 30); do
   curl -fsS -H "x-pixel-key: $PIXEL_KEY" http://127.0.0.1:8000/api/v1/health > /tmp/mmhealth.json && break
   sleep 2
 done
-python3 -c "
+"$PY_BIN" -c "
 import json
 h = json.load(open('/tmp/mmhealth.json'))
 print('synthid_available: ', h.get('synthid_available'))
@@ -161,7 +186,7 @@ say "GPU backend is up on :8000 — starting Cloudflare tunnel..."
 if ! command -v cloudflared >/dev/null 2>&1; then
   say "installing cloudflared..."
   # Try pip (PyPI wheel bundles the binary) first, then the GitHub binary.
-  if ! $PIP install -q cloudflared 2>/dev/null || ! command -v cloudflared >/dev/null 2>&1; then
+  if ! PIP install cloudflared 2>/dev/null || ! command -v cloudflared >/dev/null 2>&1; then
     ARCH="$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')"
     curl -fsSL --connect-timeout 20 --retry 5 \
       -o /usr/local/bin/cloudflared "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH"
@@ -218,14 +243,14 @@ watchdog() {
       echo "$(date -u +%T) uvicorn stuck (no listener) — killing and restarting" >> /tmp/watchdog.log
       pkill -9 -f "uvicorn app.main:app" 2>/dev/null || true
       sleep 1
-      nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 >> /tmp/uvicorn.log 2>&1 &
+      nohup "$PY_BIN" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 >> /tmp/uvicorn.log 2>&1 &
       rm -f /tmp/.uvicorn-unhealthy
     else
       touch /tmp/.uvicorn-unhealthy   # first miss may just be a slow startup
     fi
   else
     echo "$(date -u +%T) uvicorn restarted (missing)" >> /tmp/watchdog.log
-    nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 >> /tmp/uvicorn.log 2>&1 &
+    nohup "$PY_BIN" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 >> /tmp/uvicorn.log 2>&1 &
   fi
 
   # --- celery: pgrep zombies could match forever; drop them first ---
@@ -236,7 +261,7 @@ watchdog() {
     cpid=""
   fi
   if [ -z "$cpid" ]; then
-    nohup celery -A app.core.celery worker --loglevel=info -Q pixel_removal,default >> /tmp/celery.log 2>&1 &
+    nohup "$PY_BIN" -m celery -A app.core.celery worker --loglevel=info -Q pixel_removal,default >> /tmp/celery.log 2>&1 &
     echo "$(date -u +%T) celery restarted (missing/zombie)" >> /tmp/watchdog.log
   fi
 
