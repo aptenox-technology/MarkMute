@@ -101,16 +101,18 @@ def tool():
 def health():
     from app.services.pixel_service import pixel_service
 
+    backend = pixel_registry.get_backend()
+    remote = backend is not None
     synthid = (
         bool(settings.REVERSE_SYNTHID_DIR)
         and settings.REVERSE_SYNTHID_DIR.exists()
-    )
+    ) or remote
     return {
         "status": "ok",
         "app": settings.APP_NAME,
         "synthid_available": synthid,
-        "ctrlregen_available": pixel_service.is_available(),
-        "pixel_remote": (pixel_registry.get_backend() or {}).get("url"),
+        "ctrlregen_available": pixel_service.is_available() or remote,
+        "pixel_remote": (backend or {}).get("url"),
     }
 
 
